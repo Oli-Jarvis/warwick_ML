@@ -1,0 +1,31 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# Slurm logs
+*.out
+*.err
+slurm-*.out
+
+# Molecular datasets
+**/full_history.csv
+GA_best_candidates_full_history.csv
+*.db
+
+# FragNet data and checkpoints
+*.pt
+*.pkl
+*.npy
+**/graph_data/
+**/experiment/
+**/fragnet_molecular_embeddings.csv
+
+# Generated conformers and plots
+*.sdf
+dim_plots/
+**/descriptor_cache/
+fragnet_embedding_example/
+molecule_similarity/
+
+# Separate third-party FragNet repository
+**/FragNet/
