@@ -941,5 +941,3 @@ def main() -> None:
     print("\nSaved:")
     for output in sorted(output_dir.iterdir()):
         print(f"  {output}")
-
-

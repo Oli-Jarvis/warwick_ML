@@ -1,3 +1,9 @@
+# Historical setup notes
+
+This document preserves the earlier implementation notes. File names and the
+installation-based bridge described below are historical. Use `README.md` for
+the current three-step workflow; do not run the old installer commands.
+
 # FragNet → NMO → fixed chemical space
 
 Prepared for Oliver Jarvis from the four supplied text attachments and the supplied

@@ -1,4 +1,4 @@
-"""Inference using the exact graph builder and model constructor supplied by Oli."""
+"""Load FragNet and predict log_P_upconversion."""
 from pathlib import Path
 from types import SimpleNamespace
 from collections import OrderedDict
@@ -36,7 +36,7 @@ class Predictor:
             target = manifest['signature']['target_column']
             if target != 'log_P_upconversion':
                 raise ValueError(f'Unexpected training target: {target}')
-            # Match the feature/model sources to the recorded training environment.
+
             for old, expected in manifest['signature'].get('native_sources', {}).items():
                 relative = Path(old).parts
                 offset = relative.index('fragnet')
@@ -66,7 +66,7 @@ class Predictor:
             except (ValueError, TypeError) as exc:
                 row['prediction_error'] = str(exc)
             rows.append(row)
-        # Batches limit graph memory. Molecule failures remain aligned with inputs.
+
         names = list(pending)
         for start in range(0, len(names), batch_size):
             graphs, accepted = [], []
@@ -91,7 +91,7 @@ class Predictor:
                 pred, error = self.cache[row['smiles']]
                 row.update(fragnet_log_P_upconversion=pred, prediction_ok=not error,
                            prediction_error=error)
-        # Keep the most recent 10,000 predictions between oracle batches.
+
         while len(self.cache) > 10000:
             self.cache.popitem(last=False)
         return pd.DataFrame(rows, columns=['input_smiles','smiles','fragnet_log_P_upconversion','prediction_ok','prediction_error'])

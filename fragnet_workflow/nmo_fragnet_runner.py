@@ -1,12 +1,5 @@
 #!/usr/bin/env python3
-"""NMO -> persistent FragNet subprocess, with no installed-source edits.
-
-Place beside predictor.py in fragnet_workflow. Run using the nmo Python.
-smoke: exercise NMO anchoring, FragNet, fitness, HDF5 and prediction logging.
-run: execute a real genetic_GFN_framework/train.py with an explicit objective.
-The existing workflow.py project command accepts the resulting prediction CSV.
-The original xTB length/area-scaled reward is deliberately unavailable.
-"""
+"""Connect NMO rewards to a persistent FragNet subprocess."""
 import argparse
 import atexit
 import ast
@@ -32,7 +25,7 @@ HERE = Path(__file__).resolve().parent
 
 
 def worker(args):
-    # Reserve the original stdout pipe for JSON; native/model prints go to stderr.
+
     protocol = os.fdopen(os.dup(sys.stdout.fileno()), 'w', buffering=1)
     os.dup2(sys.stderr.fileno(), sys.stdout.fileno())
     from predictor import Predictor
@@ -187,7 +180,7 @@ def install_runtime(client, output):
         rewards['failure_reasons'] = np.asarray(reasons, dtype=object)
         return rewards, indices[ok[indices].astype(bool)], reasons
 
-    # Existing NMO anchoring, validation, SA and rotatable-bond routines are kept.
+
     module.terahertz_workflow_handler = dispatch
     original_init = module.Oracle_Handler.__init__
 
@@ -212,7 +205,7 @@ def install_runtime(client, output):
             n = len(encodings)
             ok = np.asarray(rewards.get('fragnet_prediction_ok', np.zeros(n)), dtype=bool)
             rewards['fragnet_prediction_ok'] = ok.astype(int)
-            # NMO zero-fills failed entries after dispatch; restore missing properties.
+
             for key in ('log_P_upconversion', 'fragnet_log_P_upconversion', 'P_upconversion', 'hl_gaps'):
                 values = np.asarray(rewards.get(key, np.full(n, np.nan)), dtype=float).copy()
                 values[~ok] = np.nan
@@ -287,7 +280,7 @@ def main():
         if args.count < 1:
             parser.error('--count must be positive')
         examples = read_examples(args.input, args.count)
-        # Positive monotonic score for plumbing test ONLY, not a generation objective.
+
         fitness = '1.0/(1.0+np.exp(-np.clip(log_P_upconversion/5.0,-60,60)))'
         config.read_dict({'General': {'grammar_path': '', 'encoding_type': 'Smiles'},
                           'Training': {}, 'Oracle': {'max_oracle_calls': '-1', 'n_cpus_total': '1'}})
@@ -314,7 +307,7 @@ def main():
     config_path = output/'nmo_fragnet.ini'
     with config_path.open('w') as f:
         config.write(f)
-    # NMO is imported only in the nmo parent; Torch/predictor only in the worker.
+
     importlib.import_module('NMO.oracle_handler')
     client = Client(args, output)
     try:
@@ -329,7 +322,7 @@ def main():
         if args.command == 'smoke':
             oracle = module.Oracle_Handler_Smiles(str(config_path))
             results = []
-            # Two calls test persistence, including NMO metadata writing on each call.
+
             for repeat in range(2):
                 scores, rewards, exceeded = oracle.get_fitness(examples, {'step': repeat})
                 results.append(dict(batch=repeat+1, requested=len(examples),

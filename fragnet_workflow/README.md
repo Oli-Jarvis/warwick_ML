@@ -1,145 +1,127 @@
-# Molecular generation with FragNet
+# Molecular generation workflow
 
-The workflow pretrains an RNN generator, generates molecules using the existing
-NMO genetic search and FragNet reward, then projects successful molecules into a
-saved chemical space. FragNet predictions guide generation during the search.
+Three scripts follow the scientific stages. FragNet predictions guide the
+molecular search inside step 2; projection is a separate operation.
 
-## Running
+| Step | Script | Input | Main output |
+| --- | --- | --- | --- |
+| 1. Pretrain the generator | `pretrain_generator.py` | SMILES dataset and vocabulary | RNN `prior.pt` and completion manifest |
+| 2. Generate and score | `generate_molecules.py` | RNN prior and trained FragNet model | Scored molecules in `fragnet_predictions.csv`, history and final generator |
+| 3. Project into chemical space | `project_molecules.py` | Scored molecules and saved reference | `candidates_in_space.csv` and interactive HTML |
 
-Use the existing `nmo` environment for the commands below, on a compute node.
-The launcher starts the `fragnet` interpreter for prediction and projection.
-Edit `workflow.ini` for paths, run name, evaluation budget and other run defaults.
-Paths are relative to the configured root; command-line flags take precedence.
-The scientific settings in `run.py:build_config` retain the pilot configuration.
+## Run the steps
 
-From the repository root:
+From the repository root, on an allocated compute node:
 
 ```bash
 conda activate nmo
-python fragnet_workflow/run.py prepare
-python fragnet_workflow/run.py pretrain --cpu
-python fragnet_workflow/run.py generate --name trial_002 --calls 256 --cpu
+python fragnet_workflow/pretrain_generator.py --cpu
+python fragnet_workflow/generate_molecules.py --name trial_002 --calls 256 --cpu
+python fragnet_workflow/project_molecules.py --name trial_002
 ```
 
-`prepare` checks required files, creates the NMO configuration and working source
-copies, and runs the generator import/tokenizer checks. It does not train.
-`pretrain` trains six epochs by default, or reuses a prior whose recorded settings
-and checksum match. `generate` requires the prior and automatically projects the
-successful molecules after generation. `all` performs both stages.
-Choose a new run name every time; the launcher does not resume partial generation.
-A supplied `--prior` must have the same architecture and vocabulary/token order.
+The generation script keeps a FragNet worker in your existing `fragnet` Conda
+environment. The projection script also starts that interpreter, so all three
+commands can be launched from `nmo`. Run only the stages you need: reuse the prior
+by starting at step 2, or repeat projection under a new output location via the
+lower-level `workflow.py project` command.
+
+On Warwick, submit each stage separately from the repository root:
 
 ```bash
-python fragnet_workflow/run.py all --name trial_003 --cpu
-python fragnet_workflow/run.py project --name trial_002
-python fragnet_workflow/run.py predict --input molecules.csv --output predictions
-python fragnet_workflow/run.py predict --input molecules.csv --output predictions_with_space --with-space
-python fragnet_workflow/run.py project --input scored.csv --output projected
+sbatch pretrain.sbatch
+# After pretraining succeeds:
+sbatch generate.sbatch trial_002
+# After generation succeeds:
+sbatch project.sbatch trial_002
 ```
 
-Prediction input has a `smiles` column (override with `--smiles-column`). Projection
-input has `smiles` and `fragnet_log_P_upconversion` (override with
-`--property-column`). Command-line CSV/output paths are relative to your shell.
-Use a new output directory. Projection of a named run also requires its projection
-directory to be absent or empty.
+These jobs do not automatically depend on one another. Wait for each stage to
+finish successfully before submitting the next. The Slurm files retain your
+Warwick Conda initialisation. Generation no longer starts projection automatically.
 
-The existing `start_fragnet_generation.py` command still works. `workflow.py`
-retains the lower-level prediction, verification and reference-building commands.
-The Slurm scripts should be submitted from the repository root. They retain the
-Warwick Conda initialisation and `nmo` environment; edit those for other systems.
+Edit `fragnet_workflow/workflow.ini` for paths and routine defaults. Relative paths
+in that file follow its configured root; CLI paths follow your current directory.
+Use `--help` on each script for its own options. The RNN, genetic-search, replay
+and fitness settings remain together in `generator.py:build_config`.
 
-## Required inputs
+## Inputs and reuse
 
-- Selected FragNet directory: `fragnet_selected.yaml`, `run_manifest.json`, and
-  `experiment/ft.pt`, with the matching `smiles_baseline2/FragNet` implementation.
-- Generator framework and its `data/experiments/Voc_adapted` and
-  `data/experiments/translated_smiles.smi` files.
-- `generator_prior/prior.pt` and its completion manifest, or a pretraining run.
-- `chemical_space_reference/reference.pkl` for the current automatic projection.
+Run `git lfs pull` after cloning to retrieve the actual weights, dataset and
+reference. LFS pointers alone cannot be used for prediction.
 
-Run `git lfs pull` after cloning to retrieve the model, dataset and reference
-contents. Small LFS pointer files are not usable model files. The default launcher
-checks the reference and dataset even when a generator prior already exists.
-Use the same RDKit, scikit-learn and DScribe versions used to fit the reference;
-projection explicitly checks them.
+Step 1 needs the original generator framework, `Voc_adapted` and
+`translated_smiles.smi`. It trains six epochs by default. An existing prior is
+reused only when its saved settings and checksum match. If relocating a verified
+prior, use `--prior /path/to/prior.pt`; it must match the architecture and exact
+vocabulary/token order. FragNet and the chemical-space reference are not needed
+for this stage.
 
-## Scientific behaviour
+Step 2 additionally needs the matching FragNet implementation and the selected
+model directory (`fragnet_selected.yaml`, `run_manifest.json`, `experiment/ft.pt`).
+Every generation needs a fresh name. Partial generations are not resumed.
+The oracle budget includes failed predictions; the step limit can end a run early.
+Generation output is under `nmo_fragnet_generation/NAME/` by default.
 
-The RNN has three layers and hidden size 512. Generation retains the existing
-replay updates, mutation/crossover operations, filters, S-Au anchoring and oracle
-budget handling. The property is predicted `log_P_upconversion`; no extra
-logarithm is applied to the model output.
+Step 3 needs that run's `fragnet_predictions.csv` and
+`chemical_space_reference/reference.pkl`. It filters failures and keeps the first
+successful row for each canonical anchored SMILES. Results go to `NAME_space/`.
+The summary uses the requested budget from the saved run configuration when
+available. It does not retrain the predictor or refit the reference.
+Use the same RDKit, scikit-learn and DScribe versions as the reference fit.
 
-Fitness retains the positive log-P transform with offset 5, the SA penalty and
-the rotatable-bond penalty. Length and area weights are zero. Predictions and
-fitness remain different quantities; failed predictions receive zero fitness.
+## What remains unchanged
 
-Candidate descriptors are calculated and transformed using the saved reference.
-There is no PCA or cluster refit during projection. The uploaded reference uses
-three PCs per descriptor family plus log-P, 20 final clusters and nearest-BIRCH-
-subcluster assignment. Its manifest says `original_clusters_preserved: false`;
-this refactor does not replace those labels with the earlier clustering.
+- Three-layer RNN with hidden size 512, pretraining settings and tokenisation.
+- Replay updates, genetic mutation/crossover, filters and S-Au anchoring.
+- FragNet model/graph construction and predicted `log_P_upconversion`.
+- Positive log-P fitness transform with offset 5, SA and rotatable-bond penalties;
+  length and area weights remain zero. Failed predictions receive zero fitness.
+- Candidate descriptors, saved PCA transformations and cluster assignment.
+- Guarded generator source fixes for allocated GPUs, actual epoch count, empty
+  batches, remaining evaluation budget and saving before optional plots.
 
-The guarded changes applied to working generator copies remain unchanged:
-CUDA allocation handling, six actual pretraining epochs, empty-batch handling,
-remaining-budget limits and saving the final agent before optional plots.
+The current reference has three PCs per descriptor family plus log-P, 20 final
+clusters and nearest-BIRCH-subcluster assignment. Its manifest records
+`original_clusters_preserved: false`; no older cluster labels are substituted.
 
-## Files to read
+## Supporting code
 
-| File | Responsibility |
+| File | Purpose |
 | --- | --- |
-| `workflow.ini` | Paths and routine run settings |
-| `run.py` | Generation stages and common command-line entry point |
-| `nmo_fragnet_runner.py` | Persistent FragNet subprocess and NMO reward connection |
-| `predictor.py` | Load the trained model and predict an aligned batch |
-| `model_utils.py` | Molecule identity, stereo checks, graph and model construction |
-| `space.py` | Reference transformations, assignment and plotting |
-| `legacy_dim.py` | Existing conformer construction used by the space module |
+| `generator.py` | Shared generator settings, prepared source copies and process helpers |
+| `nmo_fragnet_runner.py` | Persistent FragNet worker and NMO fitness connection |
+| `predictor.py`, `model_utils.py` | Load the model, build graphs and predict |
+| `space.py`, `conformers.py` | Describe molecules, transform coordinates and assign clusters |
+| `settings.py`, `workflow.ini` | Paths and stage-specific command-line settings |
+| `workflow.py` | Optional standalone prediction, verification and reference-building utilities |
 
-`training_reference.py` now only provides compatibility imports. The original
-`run_fragnet.py` training implementation is unchanged, including checkpoint-resume
-fingerprints. `install_nmo.py` and `nmo_bridge.py` are the earlier integration
-route; do not install that patch when using the current subprocess launcher.
-Historical reference setup and integration notes are in `REFERENCE_SETUP.md`.
+There is no combined `run.py` or `start_fragnet_generation.py` entry point.
+Obsolete integration and analysis scripts are retained under `archive/` for
+reference. Historical setup notes remain in `REFERENCE_SETUP.md`.
 
-## Validation before adopting the branch
-
-The standard-library checks compare the relocated functions, stage ordering,
-fitness and generated NMO settings with commit
-`b240b788c8024c46a46bf365dc9be984fafef440`. They also test paths, CLI overrides,
-subprocess routing and protection of existing runs:
+## Check against the original
 
 ```bash
 python -m unittest discover -s fragnet_workflow/tests -v
 ```
 
-On an allocated compute node, use your working FragNet environment for the actual
-model/reference comparison. This creates both results in a new directory:
+These standard-library checks compare moved functions and configuration with
+commit `b240b788c8024c46a46bf365dc9be984fafef440`, and exercise stage separation,
+file checks, deduplication, failure handling and protection of existing runs.
 
-```bash
-conda activate fragnet
-python fragnet_workflow/check_equivalence.py --count 5 --output validation_refactor
-```
+For actual prediction and projection comparisons, submit `sbatch validate.sbatch`
+on Warwick. It writes `validate-JOBID.log` and `validation_refactor_JOBID/`.
+The comparison includes a duplicate and an invalid SMILES, checks saved training
+predictions, projected coordinates and labels, and verifies that the weights and
+reference did not change. `comparison.json` is written only if all checks pass.
+The molecular comparison has not been run in the refactoring workspace, which
+lacks the required chemistry/ML packages. It does not test a full generation run.
 
-This compares regenerated predictions, projected coordinates, cluster labels and
-rejection rows, including a duplicate and an invalid SMILES. It also compares the
-valid predictions against the saved training predictions and checks that the
-model and reference files did not change. The output `comparison.json` is written
-only after all comparisons pass. Logs for each version are retained on failure.
-This does not exercise a full generator run; use a fresh small generation in the
-`nmo` environment after the comparison passes. The original `workflow.py verify`
-also tests saved graph tensors, but needs the separately stored `graph_data/train.pkl`.
+## Predictor training
 
-On Warwick, `sbatch validate.sbatch` from the repository root runs both checks in
-the existing `fragnet` environment. It writes `validate-JOBID.log` and a fresh
-`validation_refactor_JOBID` directory. The real molecular comparison must pass
-before adopting this branch; it could not be executed in the refactoring workspace.
-
-## Later DFT fine-tuning
-
-Keep the current xTB model and split records. DFT fine-tuning should load the full
-xTB `ft.pt` into the same architecture and write a separate model directory.
-That training mode is not implemented by this refactor. The existing training
-script starts fresh runs from the original FragNet pretraining checkpoint.
-Using a future DFT predictor with the existing xTB-valued reference also requires
-an explicit decision about the property coordinate; it is not a formatting change.
+The original top-level `run_fragnet.py` and its resume fingerprints are unchanged.
+Keep the xTB model and split records. Later DFT fine-tuning should initialise from
+the full xTB `ft.pt` and write a separate model directory; that mode is a separate
+change, not implemented here. Using DFT-valued predictions in an xTB-valued chemical
+space also needs an explicit scientific decision about the property coordinate.

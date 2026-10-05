@@ -20,7 +20,7 @@ def molecule_identity(text):
     if not isinstance(text,str) or not text.strip(): raise ValueError('Missing/non-text SMILES')
     mol=Chem.MolFromSmiles(text.strip())
     if mol is None or mol.GetNumAtoms()==0: raise ValueError('Invalid/empty SMILES')
-    # Atom map labels are bookkeeping, not molecular identity.
+
     for atom in mol.GetAtoms(): atom.SetAtomMapNum(0)
     Chem.AssignStereochemistry(mol,cleanIt=True,force=True)
     if mol.GetStereoGroups(): raise ValueError('Enhanced stereo groups require a richer representation')
@@ -28,7 +28,7 @@ def molecule_identity(text):
     if any(x.GetChiralTag() not in allowed for x in mol.GetAtoms()):
         raise ValueError('Unsupported non-tetrahedral atom stereochemistry')
     stereo=Chem.MolToSmiles(mol,canonical=True,isomericSmiles=True)
-    # Remove only stereochemistry: retain isotopes, charges, and disconnected components.
+
     parent=Chem.Mol(mol); Chem.RemoveStereochemistry(parent)
     family=Chem.MolToSmiles(parent,canonical=True,isomericSmiles=True)
     unspecified=sum(str(info.specified)=='Unspecified' for info in Chem.FindPotentialStereo(mol))
@@ -60,7 +60,7 @@ def make_3d(smiles,seed):
         if AllChem.EmbedMolecule(m,settings)==0: break
     else: raise ValueError('3D embedding failed; no silent 2D fallback')
     if AllChem.MMFFHasAllMoleculeParams(m): AllChem.MMFFOptimizeMolecule(m,maxIters=200)
-    # Retain labels, and independently verify specified stereo against coordinates.
+
     encoded=molecule_identity(Chem.MolToSmiles(Chem.RemoveHs(m),isomericSmiles=True))[0]
     if encoded!=smiles: raise ValueError('Stereo/identity changed while adding coordinates')
     check=Chem.Mol(m); Chem.AssignStereochemistryFrom3D(check,confId=0,replaceExistingTags=True)
@@ -89,8 +89,8 @@ def one_graph(row,creator,seed):
     m=make_3d(row.smiles,seed)
     graph=creator.create_data_point([row.smiles,[float(row.y)],m,m.GetConformer(), 'brics'])
     validate_graph(graph,row.smiles,row.y)
-    # FragmentedMol may add wedges. Compare against the SAME post-fragmentation
-    # molecule, not an independently reordered SMILES parse.
+
+
     f=creator.feature_creator
     atoms,edges,bonds=f.get_atom_and_bond_features_atom_graph_one_hot(m,True)
     if not np.array_equal(graph.x_atoms.cpu().numpy(),np.asarray(atoms,dtype=np.float32)):

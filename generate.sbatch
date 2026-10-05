@@ -24,11 +24,11 @@ echo "Started: $(date)"
 echo "Node: $(hostname)"
 echo "Job ID: $SLURM_JOB_ID"
 
-srun python -u run.py generate \
+srun python -u generate_molecules.py \
     --calls 256 \
     --seed 123 \
-    --name pilot_seed123 \
+    --name "${1:-pilot_seed123}" \
     --threads "$SLURM_CPUS_PER_TASK" \
     --cpu
 
-echo "Generation and projection completed: $(date)"
+echo "Generation completed: $(date)"
