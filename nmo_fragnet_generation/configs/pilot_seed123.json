@@ -1,0 +1,26 @@
+{
+  "config": "/storage/msszkb_grp/msshfg/nmo_fragnet_generation/configs/pilot_seed123.ini",
+  "source_repo": "/storage/msszkb_grp/msshfg/TheNanotechnologyMolecularOptimizationBenchmark",
+  "generated_sources": {
+    "pretrain": {
+      "original_sha256": "855d7e4d66bb79ac0f0b07f2a78db99415359201060413b3ca6fe094bb0e52be",
+      "working_sha256": "68520ccd8f9be8c8081417fa46fc08783da751f2236cb78b02e234a38d3085ab"
+    },
+    "train": {
+      "original_sha256": "9978f7d71566b8db361aa0abc08556ff23a6b67fec00254ddee8e601af3bcc32",
+      "working_sha256": "1b29f3860a178d4f2af48d702ed03ce6a2e1ffe31e6d641f163ed1de545a735c"
+    }
+  },
+  "prior": "/storage/msszkb_grp/msshfg/nmo_fragnet_generation/generator_prior/prior.pt",
+  "prior_exists": true,
+  "dataset": "/storage/msszkb_grp/msshfg/TheNanotechnologyMolecularOptimizationBenchmark/genetic_GFN_framework/data/experiments/translated_smiles.smi",
+  "vocabulary": "/storage/msszkb_grp/msshfg/TheNanotechnologyMolecularOptimizationBenchmark/genetic_GFN_framework/data/experiments/Voc_adapted",
+  "pretrain_epochs": 6,
+  "generation_seed": 123,
+  "requested_oracle_calls": 256,
+  "max_steps": 10000,
+  "fitness": "0.25*(np.logaddexp(0.0,np.log(10.0)*np.clip(log_P_upconversion+5.0,-50.0,80.0))/np.log(10.0))*((10.0-SA)/9.0)**2/(1.0+np.exp(2.0*(N_rot-3.5)))",
+  "length_area_penalties": false,
+  "original_positive_logp_transform": true,
+  "note": "Raw predictions are stored independently of fitness. Original xTB geometry penalties are not reproduced."
+}

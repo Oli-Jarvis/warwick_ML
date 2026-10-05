@@ -1,0 +1,14 @@
+{
+  "mode": "run",
+  "nmo_oracle": "/home/chem/msshfg/.conda/envs/nmo/lib/python3.11/site-packages/NMO/oracle_handler.py",
+  "nmo_python": "/home/chem/msshfg/.conda/envs/nmo/bin/python",
+  "fragnet_python": "/home/chem/msshfg/.conda/envs/fragnet/bin/python3.11",
+  "ready": true,
+  "pid": 3990929,
+  "checkpoint_sha256": "c81160adf9d6db0ff72278e25a6472d6566c8712a2c8eac01b3c1de0fd6c6a98",
+  "fitness": "0.25*(np.logaddexp(0.0,np.log(10.0)*np.clip(log_P_upconversion+5.0,-50.0,80.0))/np.log(10.0))*((10.0-SA)/9.0)**2/(1.0+np.exp(2.0*(N_rot-3.5)))",
+  "original_length_area_scaling": false,
+  "launch_cwd": "/storage/msszkb_grp/msshfg/TheNanotechnologyMolecularOptimizationBenchmark/genetic_GFN_framework",
+  "configuration": "/storage/msszkb_grp/msshfg/nmo_fragnet_generation/pilot_seed123/nmo_fragnet.ini",
+  "oracle_source_sha256": "9dccc4edf13a92fabd89f2d0152f0120c9747371cd27d3c6d2c937643cda0521"
+}

@@ -1,0 +1,53 @@
+{
+  "method": "Seeded Optuna TPESampler; MedianPruner when enabled",
+  "stage": "broad optimisation",
+  "selection_data": "validation split only",
+  "objective": "minimise validation MSE",
+  "requested_total_trials": 20,
+  "finished_trials": 20,
+  "best_trial_number": 11,
+  "best_validation_mse": 4.335983753204346,
+  "best_validation_rmse": 2.082302512413685,
+  "best_params": {
+    "batch_size": 128,
+    "drop_ratio": 0.25,
+    "learning_rate": 0.0007905475075930115
+  },
+  "search_space": {
+    "learning_rate": {
+      "type": "float",
+      "low": 1e-05,
+      "high": 0.001,
+      "log": true
+    },
+    "drop_ratio": {
+      "type": "float",
+      "low": 0.0,
+      "high": 0.4,
+      "step": 0.05
+    },
+    "batch_size": [
+      16,
+      32,
+      64,
+      128
+    ]
+  },
+  "fixed_during_search": {
+    "backbone_layers": 4,
+    "attention_heads": 4,
+    "embedding_dimension": 128,
+    "regression_head": {
+      "h1": 128,
+      "h2": 1024,
+      "h3": 1024,
+      "h4": 512,
+      "act": "relu",
+      "fthead": "FTHead3"
+    },
+    "loss": "MSE"
+  },
+  "test_set_evaluated": false,
+  "study_database": "/storage/msszkb_grp/msshfg/fragnet_combined_log_P_upconversion_broad_optuna/broad_optuna/fragnet_broad_optuna.db",
+  "trials_csv": "/storage/msszkb_grp/msshfg/fragnet_combined_log_P_upconversion_broad_optuna/broad_optuna/broad_optuna_trials.csv"
+}

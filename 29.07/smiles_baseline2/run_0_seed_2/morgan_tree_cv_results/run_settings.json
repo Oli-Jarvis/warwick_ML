@@ -1,0 +1,79 @@
+{
+  "input_csv": "/home/olive/plots_warwick/29.07/smiles_baseline2/run_0_seed_2/full_history.csv",
+  "smiles_column": "smiles",
+  "fitness_column": "fitness",
+  "threshold": 1.5,
+  "class_1_rule": "fitness >= 1.5",
+  "radius_values": [
+    1,
+    2,
+    3
+  ],
+  "nbits_values": [
+    1024,
+    2048,
+    4096,
+    8192
+  ],
+  "tree_parameter_space": {
+    "max_depth": [
+      3,
+      5,
+      7,
+      9,
+      12,
+      15,
+      20,
+      25,
+      null
+    ],
+    "min_samples_split": [
+      2,
+      5,
+      10,
+      20,
+      50
+    ],
+    "min_samples_leaf": [
+      1,
+      2,
+      5,
+      10,
+      20
+    ],
+    "criterion": [
+      "gini",
+      "entropy",
+      "log_loss"
+    ],
+    "max_features": [
+      null,
+      "sqrt",
+      "log2",
+      0.25,
+      0.5,
+      0.75
+    ],
+    "ccp_alpha": [
+      0.0,
+      1e-05,
+      5e-05,
+      0.0001,
+      0.0005,
+      0.001,
+      0.005
+    ]
+  },
+  "sampled_tree_configurations_per_fingerprint": 100,
+  "total_evaluated_configurations": 1200,
+  "cv_folds": 5,
+  "cv_repeats": 3,
+  "fits_per_configuration": 15,
+  "test_size": 0.2,
+  "development_molecules": 4037,
+  "untouched_test_molecules": 1010,
+  "split_seed": 42,
+  "cv_seed": 42,
+  "overfit_gap_limit": 0.05,
+  "note": "The untouched test set was reserved but not used to fit, rank or evaluate a final model in this steps-1-to-5 script."
+}

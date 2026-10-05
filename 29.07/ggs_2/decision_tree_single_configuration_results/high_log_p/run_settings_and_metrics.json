@@ -1,0 +1,61 @@
+{
+  "workflow": "high_log_p",
+  "workflow_name": "High log P",
+  "direction": "high",
+  "target_column": "log_p",
+  "target_label": "log_P_upconversion",
+  "input_path": "/home/olive/plots_warwick/29.07/ggs_2",
+  "input_files": [
+    "/home/olive/plots_warwick/29.07/ggs_2/run_0_seed_0/full_history.csv",
+    "/home/olive/plots_warwick/29.07/ggs_2/run_0_seed_1/full_history.csv",
+    "/home/olive/plots_warwick/29.07/ggs_2/run_0_seed_2/full_history.csv",
+    "/home/olive/plots_warwick/29.07/ggs_2/run_0_seed_3/full_history.csv",
+    "/home/olive/plots_warwick/29.07/ggs_2/run_0_seed_4/full_history.csv"
+  ],
+  "fixed_hyperparameters": {
+    "radius": 2,
+    "nbits": 2048,
+    "max_depth": 20,
+    "min_samples_split": 5,
+    "min_samples_leaf": 1,
+    "criterion": "gini",
+    "class_weight": "balanced"
+  },
+  "requested_target_percentage": 20.0,
+  "actual_target_percentage": 20.00063463857333,
+  "boundary_value": 9.08685689978883,
+  "class_rule": "top 20% by log_P_upconversion gives target class 1 (boundary value 9.08686)",
+  "test_size": 0.2,
+  "random_state": 1,
+  "remove_gold": false,
+  "deduplicate_smiles": false,
+  "number_of_valid_molecules": 31514,
+  "training_molecules": 25211,
+  "untouched_test_molecules": 6303,
+  "class_counts": {
+    "0": 25211,
+    "1": 6303
+  },
+  "actual_tree_depth": 20,
+  "tree_node_count": 2229,
+  "tree_leaf_count": 1115,
+  "training_metrics": {
+    "accuracy": 0.9216611796438062,
+    "balanced_accuracy": 0.945683616439893,
+    "precision": 0.7231194529317619,
+    "recall": 0.9857199523998413,
+    "f1": 0.8342425514057911,
+    "mcc": 0.8006654947126554,
+    "roc_auc": 0.9839637589146799
+  },
+  "test_metrics": {
+    "accuracy": 0.8626051086784071,
+    "balanced_accuracy": 0.8594101380285066,
+    "precision": 0.6122797043774872,
+    "recall": 0.8540840602696272,
+    "f1": 0.7132450331125828,
+    "mcc": 0.6411021034586011,
+    "roc_auc": 0.887490519760892
+  },
+  "balanced_accuracy_generalisation_gap": 0.08627347841138633
+}

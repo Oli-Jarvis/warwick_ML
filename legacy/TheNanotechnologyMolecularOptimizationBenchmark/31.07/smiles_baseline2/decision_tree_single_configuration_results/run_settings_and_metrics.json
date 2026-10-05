@@ -1,0 +1,54 @@
+{
+  "input_path": "/storage/msszkb_grp/msshfg/TheNanotechnologyMolecularOptimizationBenchmark/31.07/smiles_baseline2",
+  "input_files": [
+    "/storage/msszkb_grp/msshfg/TheNanotechnologyMolecularOptimizationBenchmark/31.07/smiles_baseline2/run_0_seed_0/full_history.csv",
+    "/storage/msszkb_grp/msshfg/TheNanotechnologyMolecularOptimizationBenchmark/31.07/smiles_baseline2/run_0_seed_1/full_history.csv",
+    "/storage/msszkb_grp/msshfg/TheNanotechnologyMolecularOptimizationBenchmark/31.07/smiles_baseline2/run_0_seed_2/full_history.csv",
+    "/storage/msszkb_grp/msshfg/TheNanotechnologyMolecularOptimizationBenchmark/31.07/smiles_baseline2/run_0_seed_3/full_history.csv",
+    "/storage/msszkb_grp/msshfg/TheNanotechnologyMolecularOptimizationBenchmark/31.07/smiles_baseline2/run_0_seed_4/full_history.csv"
+  ],
+  "fixed_hyperparameters": {
+    "radius": 2,
+    "nbits": 2048,
+    "max_depth": 20,
+    "min_samples_split": 5,
+    "min_samples_leaf": 1,
+    "criterion": "gini",
+    "class_weight": "balanced"
+  },
+  "fitness_threshold": 0.5,
+  "class_rule": "fitness >= 0.5 gives class 1",
+  "test_size": 0.2,
+  "random_state": 1,
+  "remove_gold": false,
+  "deduplicate_smiles": false,
+  "number_of_valid_molecules": 36757,
+  "training_molecules": 29405,
+  "untouched_test_molecules": 7352,
+  "class_counts": {
+    "0": 12136,
+    "1": 24621
+  },
+  "actual_tree_depth": 20,
+  "tree_node_count": 1563,
+  "tree_leaf_count": 782,
+  "training_metrics": {
+    "accuracy": 0.9843223941506547,
+    "balanced_accuracy": 0.9814033516474827,
+    "precision": 0.9866417041947073,
+    "recall": 0.989997969130788,
+    "f1": 0.9883169872525913,
+    "mcc": 0.9645069795574766,
+    "roc_auc": 0.9947050612716317
+  },
+  "test_metrics": {
+    "accuracy": 0.9424646354733406,
+    "balanced_accuracy": 0.9323955333295686,
+    "precision": 0.9525532770406112,
+    "recall": 0.9620304568527919,
+    "f1": 0.9572684109506011,
+    "mcc": 0.8693414449487721,
+    "roc_auc": 0.9290629320315653
+  },
+  "balanced_accuracy_generalisation_gap": 0.04900781831791412
+}

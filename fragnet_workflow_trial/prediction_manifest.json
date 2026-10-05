@@ -1,0 +1,8 @@
+{
+  "checkpoint": "/storage/msszkb_grp/msshfg/fragnet_combined_selected_stereo/experiment/ft.pt",
+  "checkpoint_sha256": "c81160adf9d6db0ff72278e25a6472d6566c8712a2c8eac01b3c1de0fd6c6a98",
+  "input": "/storage/msszkb_grp/msshfg/fragnet_workflow/example_history.csv",
+  "successful": 19,
+  "total": 19,
+  "target": "log_P_upconversion; no extra logarithm"
+}

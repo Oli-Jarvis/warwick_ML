@@ -1,0 +1,12 @@
+run_type = "transfer_learning"
+device = "cuda"
+json_out_config = "pretrain_log.json"
+
+[parameters]
+randomize_smiles = false
+input_model_file = "index_prior_empty.prior"
+smiles_file = "my_molecules_indices.smi"
+output_model_file = "ggs_dataset.checkpoint"
+save_every_n_epochs = 10
+batch_size = 128
+num_epochs = 50

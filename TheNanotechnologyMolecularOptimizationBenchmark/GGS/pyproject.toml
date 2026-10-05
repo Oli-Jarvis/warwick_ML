@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=42"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "GGS"
+version = "0.1.0"
+authors = [{name = "Anonymous", email = "Anonymous.Anonymous@Anonymous.com"}]
+requires-python = ">=3.10"
+dependencies = [
+    "networkx",
+    "numpy",
+    "matplotlib",
+    "group-selfies @ git+https://github.com/aspuru-guzik-group/group-selfies.git",
+]
+
+[tool.setuptools]
+packages = ["GGS"]
+
+[tool.setuptools.package-dir]
+"GGS" = "."

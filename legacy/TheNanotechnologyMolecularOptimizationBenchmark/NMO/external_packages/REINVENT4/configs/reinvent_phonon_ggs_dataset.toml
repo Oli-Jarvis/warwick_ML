@@ -1,0 +1,43 @@
+run_type = "staged_learning"
+device = "cpu"
+tb_logdir = "tb_logs"
+json_out_config = "_staged_learning.json"
+
+[parameters]
+summary_csv_prefix = "staged_learning"
+use_checkpoint = false
+purge_memories = false
+prior_file = "ggs_dataset.checkpoint"
+agent_file = "ggs_dataset.checkpoint"
+batch_size = 64
+
+[learning_strategy]
+type = "dap"
+sigma = 128
+
+
+[diversity_filter]
+type = "IdenticalMurckoScaffold"
+bucket_size = 25
+minscore = 0.2
+
+[inception]
+memory_size = 100
+sample_size = 10
+
+[[stage]]
+chkpt_file = "test1_phonon_ggs_dataset.chkpt"
+max_steps = 1000
+
+[stage.scoring]
+type = "geometric_mean"
+
+[[stage.scoring.component]]
+[stage.scoring.component.nmo]
+
+[[stage.scoring.component.nmo.endpoint]]
+name = "phonon_kph"
+weight = 1
+
+[stage.scoring.component.nmo.endpoint.params]
+config_path = "configs/nmo_phonon_ggs_dataset.ini"

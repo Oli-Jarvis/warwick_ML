@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=42"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "NMO"
+version = "0.1.0"
+authors = [{name = "Anonymous", email = "Anonymous@Anonymous.com"}]
+requires-python = ">=3.11"
+dependencies = [
+    "rdkit>=2023.9.6",
+    "tad-mctc==0.4.3",
+    "tad-libcint==0.2.0",
+    "torch>=2.7.1",
+    "matplotlib>=3.10.3",
+    "ase>=3.25.0",
+    "h5py>=3.15.1",
+    "dxtb",
+    "PyTDC==1.1.14",
+]
+
+[tool.setuptools.packages.find]
+include = ["NMO*"]

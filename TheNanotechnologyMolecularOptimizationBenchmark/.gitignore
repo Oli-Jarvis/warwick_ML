@@ -1,0 +1,7 @@
+.idea/*
+test/*
+*/__pycache__
+*/build/
+*/NMO.egg-info/
+*/GGS.egg-info/
+__pycache__/

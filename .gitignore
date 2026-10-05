@@ -28,4 +28,20 @@ fragnet_embedding_example/
 molecule_similarity/
 
 # Separate third-party FragNet repository
-**/FragNet/
+
+# Local backups and credentials
+.git_accidental_backup/
+github_upload/
+.env
+.env.*
+*.pem
+*.key
+
+# Generated data and build files
+*.log
+*.parquet
+*.npz
+build/
+
+# Generated analysis plots
+analysis_plots/

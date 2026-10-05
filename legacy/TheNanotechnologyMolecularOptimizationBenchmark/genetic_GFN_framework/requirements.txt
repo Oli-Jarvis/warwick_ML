@@ -1,0 +1,7 @@
+rdkit==2023.9.6
+torch==2.7.1
+matplotlib==3.10.3
+pandas==2.2.3
+joblib==1.5.1
+ase>=3.25.0
+h5py>=3.15.1

@@ -1,0 +1,14 @@
+{
+  "input_file": "full_history.csv",
+  "representation": "ChemPlot structural similarity",
+  "valid_molecules": 6244,
+  "random_state": 42,
+  "dbscan_eps_on_standardised_umap": 0.35,
+  "dbscan_min_samples": 10,
+  "dbscan_cluster_count_excluding_noise": 16,
+  "dbscan_noise_count": 0,
+  "birch_threshold_on_standardised_umap": 0.25,
+  "birch_cluster_count": 29,
+  "fitness_contour_neighbours": 25,
+  "contour_mask_distance_threshold": 0.0700200906296421
+}

@@ -1,0 +1,15 @@
+{
+  "n_reference": 68268,
+  "n_pca_rows": 68427,
+  "rows_without_finite_log_P": 159,
+  "reused_cache": "/storage/msszkb_grp/msshfg/29.07/dim_plots/descriptor_cache",
+  "reused_embedding": "/storage/msszkb_grp/msshfg/29.07/dim_plots/combined_labelled_pca_embedding.csv",
+  "descriptor_recalculation": false,
+  "components_per_descriptor": 3,
+  "property": "log_P_upconversion",
+  "property_weight": 1.0,
+  "birch_subclusters": 1315,
+  "final_clusters": 20,
+  "original_clusters_preserved": false,
+  "candidate_assignment": "nearest_birch_subcluster"
+}

@@ -1,0 +1,15 @@
+{
+  "signature": {
+    "dataset_sha256": "5f6df3bfc7a453aa6c698b6486a4f8348d05c8bf511bbddebe0a657c9b67d6e3",
+    "vocabulary_sha256": "fb4635b44cae5a3d877643f160a57a196d5ca1b3e334d99d2dd61a2f5b922c40",
+    "pretrain_source_sha256": "68520ccd8f9be8c8081417fa46fc08783da751f2236cb78b02e234a38d3085ab",
+    "epochs": 6,
+    "model": "rnn",
+    "num_layers": 3,
+    "d_model": 512,
+    "max_seq_length": 140,
+    "seed": 123
+  },
+  "checkpoint_sha256": "e4b3447dffe30f3428c66358912638d193e34bf02bfbafadd833f526e2020519",
+  "elapsed_seconds": 21391.413682576036
+}

@@ -1,0 +1,102 @@
+{
+  "fragnet_root": "/home/olive/plots_warwick/29.07/smiles_baseline2/FragNet",
+  "input_path": "/home/olive/plots_warwick/29.07/smiles_baseline2",
+  "input_files": [
+    "/home/olive/plots_warwick/29.07/smiles_baseline2/run_0_seed_0/full_history.csv",
+    "/home/olive/plots_warwick/29.07/smiles_baseline2/run_0_seed_1/full_history.csv",
+    "/home/olive/plots_warwick/29.07/smiles_baseline2/run_0_seed_2/full_history.csv",
+    "/home/olive/plots_warwick/29.07/smiles_baseline2/run_0_seed_3/full_history.csv",
+    "/home/olive/plots_warwick/29.07/smiles_baseline2/run_0_seed_4/full_history.csv"
+  ],
+  "output_dir": "/home/olive/plots_warwick/29.07/smiles_baseline2/fragnet_log_P_upconversion_regression",
+  "target_column": "log_P_upconversion",
+  "target_transform": "none",
+  "split_method": "scaffold",
+  "split_sizes_before_graph_generation": {
+    "train": 15495,
+    "val": 1937,
+    "test": 1937
+  },
+  "cleaning": {
+    "rows_read": 50000,
+    "invalid_or_missing_target": 729,
+    "missing_or_non_text_smiles": 12514,
+    "rdkit_parse_failures": 0,
+    "removed_before_log10_transform": 0,
+    "duplicates_removed": 17388,
+    "valid_molecules": 19369,
+    "target_column": "log_P_upconversion",
+    "target_transform": "none",
+    "target_min": -2.820909648007,
+    "target_max": 31.6855417769015,
+    "target_mean": 10.506859863170082,
+    "target_sd": 7.30365722743271,
+    "invalid_smiles_examples": []
+  },
+  "graph_generation": {
+    "train": {
+      "requested": 15495,
+      "generated": 15495,
+      "rejected": 0,
+      "verification": {
+        "count": 15495,
+        "target_min": -2.5940377712249756,
+        "target_max": 31.6855411529541,
+        "target_mean": 9.774466487158795,
+        "nonessential_attributes_not_seen": []
+      }
+    },
+    "val": {
+      "requested": 1937,
+      "generated": 1937,
+      "rejected": 0,
+      "verification": {
+        "count": 1937,
+        "target_min": -1.7362416982650757,
+        "target_max": 25.793397903442383,
+        "target_mean": 18.10225448375265,
+        "nonessential_attributes_not_seen": []
+      }
+    },
+    "test": {
+      "requested": 1937,
+      "generated": 1937,
+      "rejected": 0,
+      "verification": {
+        "count": 1937,
+        "target_min": -2.8209097385406494,
+        "target_max": 28.96432876586914,
+        "target_mean": 8.7702341455133,
+        "nonessential_attributes_not_seen": []
+      }
+    }
+  },
+  "pretrained_checkpoint": "/home/olive/plots_warwick/29.07/smiles_baseline2/FragNet/fragnet/exps/pt/unimol_exp1s4/pt.pt",
+  "configuration": {
+    "input_path": null,
+    "fragnet_root": null,
+    "target_column": "log_P_upconversion",
+    "smiles_column": "smiles",
+    "output_dir": null,
+    "split_method": "scaffold",
+    "train_fraction": 0.8,
+    "validation_fraction": 0.1,
+    "test_fraction": 0.1,
+    "seed": 123,
+    "deduplicate_smiles": true,
+    "remove_gold": false,
+    "target_transform": "none",
+    "chunk_size": 500,
+    "frag_type": "brics",
+    "data_type": "exp1s",
+    "epochs": 10000,
+    "early_stopping_patience": 100,
+    "batch_size": 16,
+    "learning_rate": 0.0001,
+    "pretrained_checkpoint": null,
+    "no_pretraining": false,
+    "prepare_only": false,
+    "skip_graph_generation": false,
+    "overwrite_graphs": false
+  }
+}

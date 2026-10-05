@@ -1,0 +1,61 @@
+{
+  "workflow": "low_performing",
+  "workflow_name": "Low-performing",
+  "direction": "low",
+  "target_column": "fitness",
+  "target_label": "fitness",
+  "input_path": "/home/olive/plots_warwick/29.07/ggs_2",
+  "input_files": [
+    "/home/olive/plots_warwick/29.07/ggs_2/run_0_seed_0/full_history.csv",
+    "/home/olive/plots_warwick/29.07/ggs_2/run_0_seed_1/full_history.csv",
+    "/home/olive/plots_warwick/29.07/ggs_2/run_0_seed_2/full_history.csv",
+    "/home/olive/plots_warwick/29.07/ggs_2/run_0_seed_3/full_history.csv",
+    "/home/olive/plots_warwick/29.07/ggs_2/run_0_seed_4/full_history.csv"
+  ],
+  "fixed_hyperparameters": {
+    "radius": 2,
+    "nbits": 2048,
+    "max_depth": 20,
+    "min_samples_split": 5,
+    "min_samples_leaf": 1,
+    "criterion": "gini",
+    "class_weight": "balanced"
+  },
+  "requested_target_percentage": 20.0,
+  "actual_target_percentage": 20.00063463857333,
+  "boundary_value": 0.0011266736583034,
+  "class_rule": "bottom 20% by fitness gives target class 1 (boundary value 0.00112667)",
+  "test_size": 0.2,
+  "random_state": 1,
+  "remove_gold": false,
+  "deduplicate_smiles": false,
+  "number_of_valid_molecules": 31514,
+  "training_molecules": 25211,
+  "untouched_test_molecules": 6303,
+  "class_counts": {
+    "0": 25211,
+    "1": 6303
+  },
+  "actual_tree_depth": 20,
+  "tree_node_count": 2137,
+  "tree_leaf_count": 1069,
+  "training_metrics": {
+    "accuracy": 0.9754868906429733,
+    "balanced_accuracy": 0.9820762818759035,
+    "precision": 0.8957066189624329,
+    "recall": 0.9930583101943673,
+    "f1": 0.9418735891647856,
+    "mcc": 0.9283738335071254,
+    "roc_auc": 0.9931895986647852
+  },
+  "test_metrics": {
+    "accuracy": 0.8965571949865143,
+    "balanced_accuracy": 0.8693328145088002,
+    "precision": 0.7072838665759019,
+    "recall": 0.823949246629659,
+    "f1": 0.7611721611721611,
+    "mcc": 0.6989444074851614,
+    "roc_auc": 0.8210026263132747
+  },
+  "balanced_accuracy_generalisation_gap": 0.11274346736710328
+}

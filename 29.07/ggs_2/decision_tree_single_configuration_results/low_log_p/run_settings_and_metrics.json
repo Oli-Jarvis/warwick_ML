@@ -1,0 +1,61 @@
+{
+  "workflow": "low_log_p",
+  "workflow_name": "Low log P",
+  "direction": "low",
+  "target_column": "log_p",
+  "target_label": "log_P_upconversion",
+  "input_path": "/home/olive/plots_warwick/29.07/ggs_2",
+  "input_files": [
+    "/home/olive/plots_warwick/29.07/ggs_2/run_0_seed_0/full_history.csv",
+    "/home/olive/plots_warwick/29.07/ggs_2/run_0_seed_1/full_history.csv",
+    "/home/olive/plots_warwick/29.07/ggs_2/run_0_seed_2/full_history.csv",
+    "/home/olive/plots_warwick/29.07/ggs_2/run_0_seed_3/full_history.csv",
+    "/home/olive/plots_warwick/29.07/ggs_2/run_0_seed_4/full_history.csv"
+  ],
+  "fixed_hyperparameters": {
+    "radius": 2,
+    "nbits": 2048,
+    "max_depth": 20,
+    "min_samples_split": 5,
+    "min_samples_leaf": 1,
+    "criterion": "gini",
+    "class_weight": "balanced"
+  },
+  "requested_target_percentage": 20.0,
+  "actual_target_percentage": 20.00063463857333,
+  "boundary_value": 4.13517214904374,
+  "class_rule": "bottom 20% by log_P_upconversion gives target class 1 (boundary value 4.13517)",
+  "test_size": 0.2,
+  "random_state": 1,
+  "remove_gold": false,
+  "deduplicate_smiles": false,
+  "number_of_valid_molecules": 31514,
+  "training_molecules": 25211,
+  "untouched_test_molecules": 6303,
+  "class_counts": {
+    "0": 25211,
+    "1": 6303
+  },
+  "actual_tree_depth": 20,
+  "tree_node_count": 1443,
+  "tree_leaf_count": 722,
+  "training_metrics": {
+    "accuracy": 0.9859188449486336,
+    "balanced_accuracy": 0.9880011768466022,
+    "precision": 0.9412540011297308,
+    "recall": 0.9914716382387941,
+    "f1": 0.9657104220998745,
+    "mcc": 0.9573699236534827,
+    "roc_auc": 0.9957496156682695
+  },
+  "test_metrics": {
+    "accuracy": 0.9282881167697922,
+    "balanced_accuracy": 0.9034387119646201,
+    "precision": 0.7963369963369963,
+    "recall": 0.8620142743854085,
+    "f1": 0.8278750952018279,
+    "mcc": 0.7836545504224801,
+    "roc_auc": 0.8698971462868132
+  },
+  "balanced_accuracy_generalisation_gap": 0.08456246488198205
+}

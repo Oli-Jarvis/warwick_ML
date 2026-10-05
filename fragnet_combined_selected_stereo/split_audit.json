@@ -1,0 +1,17 @@
+{
+  "accepted_counts": {
+    "train": 31766,
+    "val": 3970,
+    "test": 3960
+  },
+  "accepted_fractions": {
+    "train": 0.8002317613865377,
+    "val": 0.10001007658202338,
+    "test": 0.09975816203143893
+  },
+  "exact_overlap": 0,
+  "stereo_family_overlap": 0,
+  "historical_train_val_in_test": 0,
+  "graph_rejections": 2,
+  "stereo_feature_collisions": 0
+}

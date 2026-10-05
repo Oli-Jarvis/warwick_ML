@@ -1,0 +1,733 @@
+#!/usr/bin/env python3
+"""
+Analyse saved dimensionality-reduction coordinates for the SMILES runs.
+
+Compatible inputs:
+    dim_plots/full_fixed_pca_embedding.csv
+    dim_plots/full_fixed_tsne_embedding.csv
+    dim_plots/full_fixed_umap_embedding.csv
+
+Behaviour:
+    - PCA:
+        * plots PCA_1 against PCA_2
+        * clusters using every saved PCA component (PCA_1 ... PCA_N)
+    - t-SNE and UMAP:
+        * plots and clusters using their two saved coordinates
+
+Outputs:
+    analysis_plots/<method>/<property>_<threshold_type>_<threshold>/
+"""
+
+from __future__ import annotations
+
+import base64
+import io
+import re
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import plotly.express as px
+from rdkit import Chem
+from rdkit.Chem import Draw
+from rdkit.Chem.Scaffolds import MurckoScaffold
+from scipy.stats import gaussian_kde
+from sklearn.cluster import Birch, DBSCAN
+from sklearn.preprocessing import StandardScaler
+
+
+EMBEDDING_FILES = {
+    "1": ("pca", Path("dim_plots/full_fixed_pca_embedding.csv")),
+    "2": ("tsne", Path("dim_plots/full_fixed_tsne_embedding.csv")),
+    "3": ("umap", Path("dim_plots/full_fixed_umap_embedding.csv")),
+}
+
+
+def choose_embedding() -> tuple[str, Path]:
+    print("\nChoose dimensionality reduction:")
+    print("1 = PCA")
+    print("2 = t-SNE")
+    print("3 = UMAP")
+
+    choice = input("Choice: ").strip()
+
+    if choice not in EMBEDDING_FILES:
+        raise SystemExit("Choice must be 1, 2 or 3.")
+
+    method, path = EMBEDDING_FILES[choice]
+
+    if not path.exists():
+        raise SystemExit(f"Input file not found: {path}")
+
+    return method, path
+
+
+def find_column(df: pd.DataFrame, candidates: list[str]) -> str:
+    lookup = {str(c).strip().lower(): c for c in df.columns}
+
+    for candidate in candidates:
+        if candidate.lower() in lookup:
+            return lookup[candidate.lower()]
+
+    raise KeyError(
+        f"Could not find any of {candidates}. Available columns:\n"
+        + ", ".join(map(str, df.columns))
+    )
+
+
+def find_embedding_columns(
+    df: pd.DataFrame,
+    method: str,
+) -> tuple[str, str]:
+    normalised = {
+        re.sub(r"[^a-z0-9]+", "", str(column).lower()): column
+        for column in df.columns
+    }
+
+    aliases = {
+        "pca": ["pca"],
+        "tsne": ["tsne"],
+        "umap": ["umap"],
+    }[method]
+
+    candidate_pairs = []
+
+    for prefix in aliases:
+        candidate_pairs.extend([
+            (f"{prefix}1", f"{prefix}2"),
+            (f"{prefix}01", f"{prefix}02"),
+            (f"{prefix}x", f"{prefix}y"),
+        ])
+
+    for first, second in candidate_pairs:
+        if first in normalised and second in normalised:
+            return normalised[first], normalised[second]
+
+    raise KeyError(
+        f"Could not identify the first two {method.upper()} coordinate columns."
+    )
+
+
+def find_pca_clustering_columns(df: pd.DataFrame) -> list[str]:
+    """
+    Return all saved PCA columns in numerical order.
+
+    Accepts names such as:
+        PCA_1, PCA_2, ..., PCA_50
+        PCA1, PCA2, ...
+        PCA-1, PCA-2, ...
+    """
+    matched = []
+
+    for column in df.columns:
+        match = re.fullmatch(
+            r"pca[_\s-]?0*(\d+)",
+            str(column).strip(),
+            flags=re.IGNORECASE,
+        )
+
+        if match:
+            matched.append((int(match.group(1)), column))
+
+    matched.sort(key=lambda item: item[0])
+    columns = [column for _, column in matched]
+
+    if len(columns) < 2:
+        raise KeyError(
+            "The PCA CSV does not contain at least PCA_1 and PCA_2. "
+            "Regenerate it using the corrected dimensionality-reduction script."
+        )
+
+    return columns
+
+
+def safe_name(value: float) -> str:
+    return (
+        f"{value:.10g}"
+        .replace("-", "minus_")
+        .replace(".", "p")
+        .replace("+", "plus_")
+    )
+
+
+def molecule_png_data_uri(
+    smiles: str,
+    size: tuple[int, int] = (260, 180),
+) -> str:
+    mol = Chem.MolFromSmiles(smiles) if isinstance(smiles, str) else None
+
+    if mol is None:
+        return ""
+
+    image = Draw.MolToImage(mol, size=size)
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+
+    encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
+    return f"data:image/png;base64,{encoded}"
+
+
+def scaffold_smiles(smiles: str) -> str:
+    mol = Chem.MolFromSmiles(smiles) if isinstance(smiles, str) else None
+
+    if mol is None:
+        return ""
+
+    scaffold = MurckoScaffold.GetScaffoldForMol(mol)
+
+    if scaffold is None or scaffold.GetNumAtoms() == 0:
+        return ""
+
+    return Chem.MolToSmiles(scaffold, canonical=True)
+
+
+def save_density_map(
+    df: pd.DataFrame,
+    x_col: str,
+    y_col: str,
+    property_col: str,
+    threshold_type: str,
+    threshold: float,
+    output: Path,
+) -> None:
+    x = df[x_col].to_numpy(dtype=float)
+    y = df[y_col].to_numpy(dtype=float)
+
+    if len(df) < 3:
+        raise ValueError("At least three molecules are required for the density map.")
+
+    x_padding = max(np.ptp(x) * 0.05, 1e-9)
+    y_padding = max(np.ptp(y) * 0.05, 1e-9)
+
+    x_grid = np.linspace(
+        np.min(x) - x_padding,
+        np.max(x) + x_padding,
+        250,
+    )
+    y_grid = np.linspace(
+        np.min(y) - y_padding,
+        np.max(y) + y_padding,
+        250,
+    )
+
+    xx, yy = np.meshgrid(x_grid, y_grid)
+    positions = np.vstack([xx.ravel(), yy.ravel()])
+    samples = np.vstack([x, y])
+
+    try:
+        density = gaussian_kde(samples)(positions).reshape(xx.shape)
+    except np.linalg.LinAlgError:
+        scale = np.maximum(np.std(samples, axis=1, keepdims=True), 1.0)
+        jitter = np.random.default_rng(0).normal(
+            scale=1e-9 * scale,
+            size=samples.shape,
+        )
+        density = gaussian_kde(samples + jitter)(positions).reshape(xx.shape)
+
+    condition = (
+        f"{property_col} ≥ {threshold:.6g}"
+        if threshold_type == "min"
+        else f"{property_col} ≤ {threshold:.6g}"
+    )
+
+    plt.figure(figsize=(10, 8))
+    filled = plt.contourf(
+        xx,
+        yy,
+        density,
+        levels=30,
+        cmap="viridis",
+    )
+    plt.contour(
+        xx,
+        yy,
+        density,
+        levels=10,
+        linewidths=0.5,
+    )
+    plt.scatter(
+        x,
+        y,
+        s=3,
+        alpha=0.18,
+    )
+    plt.colorbar(filled, label="KDE density")
+    plt.xlabel(x_col)
+    plt.ylabel(y_col)
+    plt.title(
+        f"Density of retained molecules\n"
+        f"{condition} ({len(df):,} molecules)"
+    )
+    plt.tight_layout()
+    plt.savefig(output, dpi=300)
+    plt.close()
+
+
+def save_3d_plot(
+    df: pd.DataFrame,
+    x_col: str,
+    y_col: str,
+    property_col: str,
+    smiles_col: str,
+    cluster_col: str,
+    title: str,
+    output: Path,
+) -> None:
+    plot_df = df.copy()
+    plot_df[cluster_col] = plot_df[cluster_col].astype(str)
+
+    hover = {
+        smiles_col: True,
+        property_col: ":.5g",
+        cluster_col: True,
+        x_col: ":.5g",
+        y_col: ":.5g",
+    }
+
+    for extra in [
+        "SA",
+        "sa",
+        "N_rot",
+        "n_rot",
+        "log_P_upconversion",
+        "P_upconversion",
+    ]:
+        if extra in plot_df.columns and extra not in hover:
+            hover[extra] = True
+
+    figure = px.scatter_3d(
+        plot_df,
+        x=x_col,
+        y=y_col,
+        z=property_col,
+        color=cluster_col,
+        hover_data=hover,
+        title=title,
+        opacity=0.75,
+    )
+    figure.update_traces(marker={"size": 3})
+    figure.update_layout(legend_title_text="Cluster")
+    figure.write_html(output, include_plotlyjs="cdn")
+
+
+def save_scaffold_report(
+    df: pd.DataFrame,
+    smiles_col: str,
+    property_col: str,
+    cluster_col: str,
+    output: Path,
+) -> None:
+    work = df[[smiles_col, property_col, cluster_col]].copy()
+    work["scaffold"] = work[smiles_col].map(scaffold_smiles)
+
+    rows = []
+
+    for cluster, group in work.groupby(cluster_col, sort=True):
+        scaffold_counts = group["scaffold"].value_counts(dropna=False)
+
+        if scaffold_counts.empty:
+            dominant = ""
+            count = 0
+        else:
+            dominant = scaffold_counts.index[0]
+            count = int(scaffold_counts.iloc[0])
+
+        percentage = 100.0 * count / len(group)
+        representative = dominant or str(group.iloc[0][smiles_col])
+
+        rows.append({
+            "drawing": molecule_png_data_uri(representative),
+            "cluster": cluster,
+            "dominant_scaffold": (
+                dominant
+                if dominant
+                else "(acyclic / no Murcko scaffold)"
+            ),
+            "percentage": percentage,
+            "molecules": len(group),
+            "mean": group[property_col].mean(),
+            "sd": group[property_col].std(ddof=1),
+        })
+
+    summary = pd.DataFrame(rows).sort_values(
+        "mean",
+        ascending=False,
+    )
+
+    html_rows = []
+
+    for _, row in summary.iterrows():
+        image_html = (
+            f'<img src="{row["drawing"]}" width="260" height="180">'
+            if row["drawing"]
+            else "Drawing unavailable"
+        )
+
+        sd_text = (
+            f"{row['sd']:.6g}"
+            if pd.notna(row["sd"])
+            else "N/A"
+        )
+
+        html_rows.append(
+            "<tr>"
+            f"<td>{image_html}</td>"
+            f"<td>{row['cluster']}</td>"
+            f"<td><code>{row['dominant_scaffold']}</code></td>"
+            f"<td>{row['percentage']:.2f}</td>"
+            f"<td>{int(row['molecules'])}</td>"
+            f"<td>{row['mean']:.6g}</td>"
+            f"<td>{sd_text}</td>"
+            "</tr>"
+        )
+
+    html = f"""<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{cluster_col} scaffold summary</title>
+<style>
+body {{ font-family: Arial, sans-serif; margin: 24px; }}
+table {{ border-collapse: collapse; width: 100%; }}
+th, td {{
+    border: 1px solid #ccc;
+    padding: 8px;
+    text-align: center;
+}}
+th {{
+    background: #f2f2f2;
+    position: sticky;
+    top: 0;
+}}
+code {{ overflow-wrap: anywhere; }}
+</style>
+</head>
+<body>
+<h1>{cluster_col} scaffold summary</h1>
+<table>
+<thead>
+<tr>
+<th>Drawing</th>
+<th>Cluster</th>
+<th>Dominant scaffold</th>
+<th>% of cluster</th>
+<th>Molecules</th>
+<th>Mean {property_col}</th>
+<th>SD {property_col}</th>
+</tr>
+</thead>
+<tbody>
+{''.join(html_rows)}
+</tbody>
+</table>
+</body>
+</html>
+"""
+
+    output.write_text(html, encoding="utf-8")
+
+
+def save_representative_molecules_report(
+    df: pd.DataFrame,
+    smiles_col: str,
+    property_col: str,
+    cluster_col: str,
+    output: Path,
+    molecules_per_cluster: int = 4,
+) -> None:
+    sa_col = find_column(df, ["SA", "sa"])
+
+    sections = []
+
+    for cluster, group in df.groupby(cluster_col, sort=True):
+        unique_group = group.drop_duplicates(subset=[smiles_col])
+
+        selected = (
+            unique_group
+            .sort_values(sa_col, ascending=True)
+            .head(molecules_per_cluster)
+        )
+
+        cards = []
+
+        for _, row in selected.iterrows():
+            smiles = str(row[smiles_col])
+            image_uri = molecule_png_data_uri(
+                smiles,
+                size=(300, 210),
+            )
+
+            image_html = (
+                f'<img src="{image_uri}" width="300" height="210">'
+                if image_uri
+                else '<div class="missing">Drawing unavailable</div>'
+            )
+
+            cards.append(
+                '<div class="card">'
+                f'{image_html}'
+                f'<p><strong>SA:</strong> {row[sa_col]:.6g}</p>'
+                f'<p><strong>{property_col}:</strong> '
+                f'{row[property_col]:.6g}</p>'
+                '</div>'
+            )
+
+        sections.append(
+            '<section>'
+            f'<h2>Cluster {cluster} — {len(group):,} molecules</h2>'
+            f'<div class="gallery">{"".join(cards)}</div>'
+            '</section>'
+        )
+
+    html = f"""<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{cluster_col} representative molecules</title>
+<style>
+body {{
+    font-family: Arial, sans-serif;
+    margin: 24px;
+    background: #fafafa;
+}}
+section {{
+    margin-bottom: 36px;
+    padding: 18px;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+}}
+.gallery {{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+}}
+.card {{
+    width: 320px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    background: white;
+}}
+.card img {{
+    display: block;
+    margin: auto;
+}}
+.missing {{
+    width: 300px;
+    height: 210px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #eee;
+}}
+</style>
+</head>
+<body>
+<h1>{cluster_col} representative molecules</h1>
+<p>
+The {molecules_per_cluster} unique molecules with the lowest SA values
+are shown for each cluster, where available.
+</p>
+{''.join(sections)}
+</body>
+</html>
+"""
+
+    output.write_text(html, encoding="utf-8")
+
+
+def main() -> None:
+    method, input_path = choose_embedding()
+    data = pd.read_csv(input_path)
+
+    smiles_col = find_column(
+        data,
+        [
+            "smiles",
+            "SMILES",
+            "canonical_smiles",
+            "canonical smiles",
+            "encoding",
+        ],
+    )
+
+    x_col, y_col = find_embedding_columns(data, method)
+
+    if method == "pca":
+        clustering_columns = find_pca_clustering_columns(data)
+    else:
+        clustering_columns = [x_col, y_col]
+
+    print("\nAvailable numeric columns:")
+    numeric_columns = list(data.select_dtypes(include=np.number).columns)
+    print(", ".join(map(str, numeric_columns)))
+
+    requested_property = (
+        input("\nProperty to analyse [fitness]: ").strip()
+        or "fitness"
+    )
+    property_col = find_column(data, [requested_property])
+
+    print("\nChoose threshold type:")
+    print("1 = Minimum value — retain molecules at or above the threshold")
+    print("2 = Maximum value — retain molecules at or below the threshold")
+
+    threshold_choice = input("Choice [1]: ").strip() or "1"
+
+    if threshold_choice == "1":
+        threshold_type = "min"
+        comparison = ">="
+    elif threshold_choice == "2":
+        threshold_type = "max"
+        comparison = "<="
+    else:
+        raise SystemExit("Threshold choice must be 1 or 2.")
+
+    threshold_text = input(
+        f"Enter the {threshold_type} {property_col} threshold: "
+    ).strip()
+
+    if not threshold_text:
+        raise SystemExit("A threshold value is required.")
+
+    threshold = float(threshold_text)
+
+    required_columns = list(dict.fromkeys([
+        smiles_col,
+        x_col,
+        y_col,
+        property_col,
+        *clustering_columns,
+    ]))
+
+    work = data.dropna(subset=required_columns).copy()
+
+    if threshold_type == "min":
+        work = work[work[property_col] >= threshold].copy()
+    else:
+        work = work[work[property_col] <= threshold].copy()
+
+    if len(work) < 3:
+        raise SystemExit(
+            "Fewer than three usable molecules remain after filtering."
+        )
+
+    print(f"\nLoaded rows: {len(data):,}")
+    print(
+        f"Retained rows: {len(work):,} "
+        f"({property_col} {comparison} {threshold:.6g})"
+    )
+    print(f"Plotting coordinates: {x_col}, {y_col}")
+    print(f"Clustering dimensions: {len(clustering_columns)}")
+
+    if method == "pca":
+        print(
+            "PCA clustering columns: "
+            + ", ".join(map(str, clustering_columns))
+        )
+
+    output_dir = (
+        Path("analysis_plots")
+        / method
+        / f"{property_col}_{threshold_type}_{safe_name(threshold)}"
+    )
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    clustering_matrix = work[clustering_columns].to_numpy(dtype=float)
+
+    if method == "pca":
+        # Preserve the relative variances of the PCA components.
+        # Standardising PCA scores would give low-variance components
+        # the same influence as high-variance components.
+        scaled_matrix = clustering_matrix
+    else:
+        # UMAP and t-SNE coordinate scales are arbitrary. Standardising
+        # their two coordinates keeps DBSCAN eps and BIRCH threshold
+        # meaningful and prevents one axis from dominating distances.
+        scaled_matrix = StandardScaler().fit_transform(clustering_matrix)
+
+    dbscan_eps = float(
+        input("\nDBSCAN eps [0.30]: ").strip()
+        or "0.30"
+    )
+    dbscan_min_samples = int(
+        input("DBSCAN min_samples [10]: ").strip()
+        or "10"
+    )
+    birch_threshold = float(
+        input("BIRCH threshold [0.50]: ").strip()
+        or "0.50"
+    )
+
+    birch_clusters_text = input(
+        "BIRCH final number of clusters [None = automatic]: "
+    ).strip()
+    birch_clusters = (
+        int(birch_clusters_text)
+        if birch_clusters_text
+        else None
+    )
+
+    work["DBSCAN_cluster"] = DBSCAN(
+        eps=dbscan_eps,
+        min_samples=dbscan_min_samples,
+        n_jobs=-1,
+    ).fit_predict(scaled_matrix)
+
+    work["BIRCH_cluster"] = Birch(
+        threshold=birch_threshold,
+        n_clusters=birch_clusters,
+    ).fit_predict(scaled_matrix)
+
+    save_density_map(
+        work,
+        x_col,
+        y_col,
+        property_col,
+        threshold_type,
+        threshold,
+        output_dir
+        / f"{method}_{property_col}_{threshold_type}_kde_density.png",
+    )
+
+    for label, cluster_col in [
+        ("dbscan", "DBSCAN_cluster"),
+        ("birch", "BIRCH_cluster"),
+    ]:
+        save_3d_plot(
+            work,
+            x_col,
+            y_col,
+            property_col,
+            smiles_col,
+            cluster_col,
+            f"{method.upper()} embedding — {label.upper()} clusters",
+            output_dir / f"{label}_3d.html",
+        )
+
+        save_scaffold_report(
+            work,
+            smiles_col,
+            property_col,
+            cluster_col,
+            output_dir / f"{label}_scaffolds.html",
+        )
+
+        save_representative_molecules_report(
+            work,
+            smiles_col,
+            property_col,
+            cluster_col,
+            output_dir / f"{label}_representative_molecules.html",
+            molecules_per_cluster=4,
+        )
+
+    print("\nSaved:")
+    for output in sorted(output_dir.iterdir()):
+        print(f"  {output}")
+
+
+if __name__ == "__main__":
+    main()

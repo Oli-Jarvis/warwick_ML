@@ -1,0 +1,32 @@
+{
+  "worker_pid": 4011448,
+  "worker_requests": 2,
+  "batches": [
+    {
+      "batch": 1,
+      "requested": 5,
+      "predicted": 5,
+      "fitness": [
+        0.9718678113444432,
+        0.9668654286156334,
+        0.972817375496154,
+        0.9748061167473083,
+        0.9714639287245372
+      ]
+    },
+    {
+      "batch": 2,
+      "requested": 5,
+      "predicted": 5,
+      "fitness": [
+        0.9718678113444432,
+        0.9668654286156334,
+        0.972817375496154,
+        0.9748061167473083,
+        0.9714639287245372
+      ]
+    }
+  ],
+  "prediction_csv": "/storage/msszkb_grp/msshfg/nmo_fragnet_smoke/fragnet_predictions.csv",
+  "note": "Repeated known examples test integration; not new molecule generation or accuracy validation."
+}

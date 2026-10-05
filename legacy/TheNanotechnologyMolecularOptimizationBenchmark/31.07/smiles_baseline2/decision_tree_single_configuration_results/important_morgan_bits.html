@@ -1,0 +1,1478 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Important Morgan bits</title>
+<style>
+    :root { --background:#f4f6f8; --card:#fff; --text:#17202a; --muted:#5d6d7e; --border:#d5d8dc; --accent:#2874a6; --track:#e5e7e9; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:Arial,Helvetica,sans-serif; background:var(--background); color:var(--text); }
+    main { max-width:1500px; margin:auto; padding:28px; }
+    header { margin-bottom:24px; }
+    h1 { margin:0 0 8px; }
+    header p { color:var(--muted); margin:5px 0; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); gap:20px; }
+    .bit-card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:18px; break-inside:avoid; }
+    .card-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
+    .card-heading h2 { margin:4px 0 10px; font-size:1.2rem; }
+    .rank { color:var(--muted); font-size:.9rem; }
+    .importance-track { height:10px; border-radius:999px; overflow:hidden; background:var(--track); margin-bottom:14px; }
+    .importance-track div { height:100%; background:var(--accent); }
+    .fragment-image { min-height:250px; display:flex; align-items:center; justify-content:center; overflow:hidden; background:white; border:1px solid var(--border); border-radius:10px; padding:8px; }
+    .fragment-image svg,.fragment-image img { width:100%; max-height:310px; object-fit:contain; }
+    .fragment-error { min-height:250px; display:grid; place-items:center; color:#a93226; border:1px dashed #a93226; border-radius:10px; padding:18px; }
+    dl { display:grid; grid-template-columns:1fr 1fr; gap:10px 16px; margin:16px 0; }
+    dl div { border-bottom:1px solid var(--border); padding-bottom:7px; }
+    dt { color:var(--muted); font-size:.85rem; }
+    dd { margin:3px 0 0; font-weight:600; }
+    details { border-top:1px solid var(--border); padding-top:12px; }
+    summary { cursor:pointer; font-weight:600; }
+    code { display:block; overflow-wrap:anywhere; white-space:pre-wrap; background:var(--background); border-radius:6px; padding:8px; }
+    @media (max-width:600px) { main { padding:14px; } .grid { grid-template-columns:1fr; } dl { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<main>
+    <header>
+        <h1>Important Morgan fingerprint bits</h1>
+        <p>Fixed model: radius=2, nBits=2048, max depth=20, criterion=gini.</p>
+        <p>All images and metadata are embedded in this single HTML file. Bits are ordered by decision-tree feature importance.</p>
+        <p>Highlighted atoms and bonds show the environment represented by each bit in one example molecule.</p>
+    </header>
+    <section class="grid">
+        <article class="bit-card">
+                <div class="card-heading">
+                    <div>
+                        <span class="rank">Rank 1</span>
+                        <h2>Morgan bit 1336</h2>
+                    </div>
+                    <strong>0.522208</strong>
+                </div>
+                <div class="importance-track" title="Relative feature importance">
+                    <div style="width: 100.000%"></div>
+                </div>
+                <div class="fragment-image"><?xml version='1.0' encoding='iso-8859-1'?>
+<svg version='1.1' baseProfile='full'
+              xmlns='http://www.w3.org/2000/svg'
+                      xmlns:rdkit='http://www.rdkit.org/xml'
+                      xmlns:xlink='http://www.w3.org/1999/xlink'
+                  xml:space='preserve'
+width='150px' height='150px' viewBox='0 0 150 150'>
+<!-- END OF HEADER -->
+<rect style='opacity:1.0;fill:#FFFFFF;stroke:none' width='150.0' height='150.0' x='0.0' y='0.0'> </rect>
+<ellipse cx='84.0' cy='73.1' rx='8.9' ry='8.9' class='atom-1'  style='fill:#CCCCCC;fill-rule:evenodd;stroke:#CCCCCC;stroke-width:1.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<ellipse cx='58.9' cy='109.6' rx='8.9' ry='8.9' class='atom-2'  style='fill:#9999E5;fill-rule:evenodd;stroke:#9999E5;stroke-width:1.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<ellipse cx='16.4' cy='97.0' rx='8.9' ry='8.9' class='atom-3'  style='fill:#CCCCCC;fill-rule:evenodd;stroke:#CCCCCC;stroke-width:1.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-0 atom-0 atom-1' d='M 124.0,75.5 L 81.7,76.5' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:2.4px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-0 atom-0 atom-1' d='M 123.9,68.8 L 81.5,69.8' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:2.4px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-1 atom-1 atom-2' d='M 84.0,73.1 L 58.9,109.6' style='fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-2 atom-2 atom-3' d='M 58.9,109.6 L 16.4,97.0' style='fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-2 atom-2 atom-3' d='M 56.1,101.9 L 22.9,92.0' style='fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-3 atom-3 atom-4' d='M 16.4,97.0 L 15.3,53.5' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:2.4px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-3 atom-3 atom-4' d='M 22.9,92.0 L 21.9,53.3' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:2.4px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-4 atom-5 atom-1' d='M 57.7,38.7 L 84.0,73.1' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:2.4px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path d='M 83.4,74.0 L 84.0,73.1 L 83.4,72.3' style='fill:none;stroke:#000000;stroke-width:2.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:10;stroke-opacity:1;' />
+<path d='M 60.1,107.8 L 58.9,109.6 L 56.7,109.0' style='fill:none;stroke:#000000;stroke-width:2.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:10;stroke-opacity:1;' />
+<path d='M 17.4,97.3 L 16.4,97.0 L 16.3,95.9' style='fill:none;stroke:#000000;stroke-width:2.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:10;stroke-opacity:1;' />
+<path class='atom-0' d='M 126.0 70.6
+L 127.9 68.7
+L 125.4 68.2
+L 125.8 67.0
+L 128.0 68.1
+L 127.7 65.7
+L 129.0 65.6
+L 128.7 68.1
+L 131.0 67.0
+L 131.4 68.2
+L 128.9 68.7
+L 130.6 70.6
+L 129.6 71.4
+L 128.3 69.0
+L 127.1 71.4
+L 126.0 70.6
+' fill='#191919'/>
+<path class='atom-0' d='M 132.7 65.8
+L 134.4 65.8
+L 134.4 71.2
+L 140.8 71.2
+L 140.8 65.8
+L 142.5 65.8
+L 142.5 78.4
+L 140.8 78.4
+L 140.8 72.6
+L 134.4 72.6
+L 134.4 78.4
+L 132.7 78.4
+L 132.7 65.8
+' fill='#191919'/>
+<path class='atom-4' d='M 16.2 51.1
+L 18.1 49.3
+L 15.6 48.8
+L 16.0 47.5
+L 18.3 48.6
+L 17.9 46.2
+L 19.3 46.2
+L 18.9 48.6
+L 21.2 47.6
+L 21.6 48.8
+L 19.1 49.2
+L 20.9 51.1
+L 19.8 51.9
+L 18.6 49.6
+L 17.3 51.9
+L 16.2 51.1
+' fill='#191919'/>
+<path class='atom-4' d='M 22.9 46.4
+L 24.6 46.4
+L 24.6 51.7
+L 31.0 51.7
+L 31.0 46.4
+L 32.7 46.4
+L 32.7 58.9
+L 31.0 58.9
+L 31.0 53.1
+L 24.6 53.1
+L 24.6 58.9
+L 22.9 58.9
+L 22.9 46.4
+' fill='#191919'/>
+<path class='atom-5' d='M 54.7 36.5
+L 56.6 34.6
+L 54.1 34.1
+L 54.5 32.9
+L 56.8 34.0
+L 56.4 31.5
+L 57.8 31.5
+L 57.4 34.0
+L 59.7 32.9
+L 60.1 34.1
+L 57.6 34.6
+L 59.4 36.5
+L 58.3 37.3
+L 57.1 34.9
+L 55.8 37.3
+L 54.7 36.5
+' fill='#191919'/>
+</svg>
+</div>
+                <dl>
+                    <div><dt>Feature importance</dt><dd>0.522208</dd></div>
+                    <div><dt>Representative fitness</dt><dd>0.7133</dd></div>
+                    <div><dt>Molecules containing bit</dt><dd>24,476</dd></div>
+                    <div><dt>Count in representative</dt><dd>6</dd></div>
+                    <div><dt>Mean count when present</dt><dd>1.477</dd></div>
+                    <div><dt>Representative row</dt><dd>17495</dd></div>
+                </dl>
+                <details>
+                    <summary>Show representative SMILES</summary>
+                    <p><strong>Original:</strong><br><code>[H]OC1=C(C([H])=C2C([H])=C=C([H])C2=C2C([H])=C=C([H])C(Cl)=C2[H])C(=C([H])C([H])=C([H])C([H])([H])C([H])([H])S[Au])C([H])=C=C1[H]</code></p>
+                    <p><strong>Canonical:</strong><br><code>OC1=C(C=C2C=C=CC2=C2C=C=CC(Cl)=C2)C(=CC=CCC[S][Au])C=C=C1</code></p>
+                </details>
+            </article><article class="bit-card">
+                <div class="card-heading">
+                    <div>
+                        <span class="rank">Rank 2</span>
+                        <h2>Morgan bit 1380</h2>
+                    </div>
+                    <strong>0.098501</strong>
+                </div>
+                <div class="importance-track" title="Relative feature importance">
+                    <div style="width: 18.862%"></div>
+                </div>
+                <div class="fragment-image"><?xml version='1.0' encoding='iso-8859-1'?>
+<svg version='1.1' baseProfile='full'
+              xmlns='http://www.w3.org/2000/svg'
+                      xmlns:rdkit='http://www.rdkit.org/xml'
+                      xmlns:xlink='http://www.w3.org/1999/xlink'
+                  xml:space='preserve'
+width='150px' height='150px' viewBox='0 0 150 150'>
+<!-- END OF HEADER -->
+<rect style='opacity:1.0;fill:#FFFFFF;stroke:none' width='150.0' height='150.0' x='0.0' y='0.0'> </rect>
+<ellipse cx='84.9' cy='67.1' rx='13.3' ry='13.3' class='atom-1'  style='fill:#9999E5;fill-rule:evenodd;stroke:#9999E5;stroke-width:1.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-0 atom-0 atom-1' d='M 37.6,37.1 L 89.4,63.7' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:3.5px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-0 atom-0 atom-1' d='M 33.1,46.0 L 84.8,72.6' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:3.5px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-1 atom-1 atom-2' d='M 84.8,73.4 L 139.4,32.2' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:3.5px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-1 atom-1 atom-2' d='M 80.0,64.5 L 133.4,24.2' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:3.5px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;stroke-dasharray:6,4' />
+<path class='bond-2 atom-3 atom-1' d='M 78.5,121.7 L 80.0,64.5' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:3.5px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-2 atom-3 atom-1' d='M 88.5,121.9 L 90.0,63.2' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:3.5px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;stroke-dasharray:6,4' />
+<path class='atom-0' d='M 8.4 34.5
+L 11.2 31.7
+L 7.5 30.9
+L 8.1 29.0
+L 11.4 30.7
+L 11.0 27.0
+L 13.0 27.0
+L 12.4 30.7
+L 15.8 29.1
+L 16.4 30.9
+L 12.7 31.6
+L 15.4 34.5
+L 13.7 35.6
+L 11.9 32.1
+L 10.0 35.6
+L 8.4 34.5
+' fill='#191919'/>
+<path class='atom-0' d='M 18.4 27.3
+L 21.0 27.3
+L 21.0 35.4
+L 30.6 35.4
+L 30.6 27.3
+L 33.1 27.3
+L 33.1 46.2
+L 30.6 46.2
+L 30.6 37.5
+L 21.0 37.5
+L 21.0 46.2
+L 18.4 46.2
+L 18.4 27.3
+' fill='#191919'/>
+<path class='atom-2' d='M 134.5 24.9
+L 137.3 22.0
+L 133.6 21.3
+L 134.1 19.4
+L 137.5 21.1
+L 137.0 17.4
+L 139.0 17.4
+L 138.5 21.1
+L 141.9 19.5
+L 142.5 21.3
+L 138.8 22.0
+L 141.4 24.8
+L 139.8 26.0
+L 138.0 22.5
+L 136.1 26.0
+L 134.5 24.9
+' fill='#191919'/>
+<path class='atom-3' d='M 79.6 131.5
+L 82.4 128.7
+L 78.7 127.9
+L 79.3 126.0
+L 82.6 127.7
+L 82.2 124.0
+L 84.2 124.0
+L 83.6 127.7
+L 87.0 126.1
+L 87.6 127.9
+L 83.9 128.6
+L 86.6 131.4
+L 84.9 132.6
+L 83.1 129.1
+L 81.2 132.6
+L 79.6 131.5
+' fill='#191919'/>
+</svg>
+</div>
+                <dl>
+                    <div><dt>Feature importance</dt><dd>0.098501</dd></div>
+                    <div><dt>Representative fitness</dt><dd>0.0450585</dd></div>
+                    <div><dt>Molecules containing bit</dt><dd>35,387</dd></div>
+                    <div><dt>Count in representative</dt><dd>17</dd></div>
+                    <div><dt>Mean count when present</dt><dd>6.200</dd></div>
+                    <div><dt>Representative row</dt><dd>36188</dd></div>
+                </dl>
+                <details>
+                    <summary>Show representative SMILES</summary>
+                    <p><strong>Original:</strong><br><code>[H]N=c1nc(N([H])[H])c(-c2c([H])c([H])c(C#N)c(=O)c(C#N)nc2=N[H])c([H])c([H])c1C1=C([H])C([H])=C(c2c([H])c([H])c(C#N)c(=O)c(C#N)nc2=O)N=C([H])N=C1C([H])([H])S[Au]</code></p>
+                    <p><strong>Canonical:</strong><br><code>N#Cc1ccc(-c2ccc(C3=CC=C(c4ccc(C#N)c(=O)c(C#N)nc4=O)N=CN=C3C[S][Au])c(=N)nc2N)c(=N)nc(C#N)c1=O</code></p>
+                </details>
+            </article><article class="bit-card">
+                <div class="card-heading">
+                    <div>
+                        <span class="rank">Rank 3</span>
+                        <h2>Morgan bit 1019</h2>
+                    </div>
+                    <strong>0.051405</strong>
+                </div>
+                <div class="importance-track" title="Relative feature importance">
+                    <div style="width: 9.844%"></div>
+                </div>
+                <div class="fragment-image"><?xml version='1.0' encoding='iso-8859-1'?>
+<svg version='1.1' baseProfile='full'
+              xmlns='http://www.w3.org/2000/svg'
+                      xmlns:rdkit='http://www.rdkit.org/xml'
+                      xmlns:xlink='http://www.w3.org/1999/xlink'
+                  xml:space='preserve'
+width='150px' height='150px' viewBox='0 0 150 150'>
+<!-- END OF HEADER -->
+<rect style='opacity:1.0;fill:#FFFFFF;stroke:none' width='150.0' height='150.0' x='0.0' y='0.0'> </rect>
+<ellipse cx='80.0' cy='49.7' rx='11.7' ry='11.7' class='atom-1'  style='fill:#9999E5;fill-rule:evenodd;stroke:#9999E5;stroke-width:1.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-0 atom-0 atom-1' d='M 132.7,46.0 L 80.0,49.7' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:3.1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-1 atom-1 atom-2' d='M 80.0,49.7 L 75.0,97.7' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:3.1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-2 atom-1 atom-3' d='M 80.0,49.7 L 42.5,38.9' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:3.1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='atom-0' d='M 135.4 43.8
+L 137.9 41.3
+L 134.6 40.6
+L 135.1 39.0
+L 138.1 40.5
+L 137.7 37.2
+L 139.4 37.2
+L 139.0 40.4
+L 142.0 39.0
+L 142.5 40.6
+L 139.2 41.2
+L 141.6 43.7
+L 140.1 44.8
+L 138.5 41.7
+L 136.9 44.8
+L 135.4 43.8
+' fill='#191919'/>
+<path class='atom-2' d='M 70.7 106.2
+L 73.2 103.7
+L 69.9 103.0
+L 70.4 101.4
+L 73.4 102.9
+L 73.0 99.6
+L 74.8 99.6
+L 74.3 102.9
+L 77.3 101.4
+L 77.8 103.0
+L 74.5 103.7
+L 76.9 106.2
+L 75.4 107.2
+L 73.8 104.1
+L 72.2 107.2
+L 70.7 106.2
+' fill='#191919'/>
+<path class='atom-2' d='M 79.6 99.9
+L 81.8 99.9
+L 81.8 106.9
+L 90.3 106.9
+L 90.3 99.9
+L 92.6 99.9
+L 92.6 116.5
+L 90.3 116.5
+L 90.3 108.8
+L 81.8 108.8
+L 81.8 116.5
+L 79.6 116.5
+L 79.6 99.9
+' fill='#191919'/>
+<path class='atom-2' d='M 100.9 119.0
+Q 102.0 119.3, 102.5 120.0
+Q 103.0 120.7, 103.0 121.8
+Q 103.0 122.7, 102.6 123.5
+Q 102.1 124.2, 101.2 124.6
+Q 100.4 125.0, 99.3 125.0
+Q 98.1 125.0, 97.2 124.6
+Q 96.3 124.1, 95.6 123.3
+L 96.5 122.4
+Q 97.2 123.1, 97.8 123.4
+Q 98.4 123.7, 99.3 123.7
+Q 100.3 123.7, 100.9 123.2
+Q 101.5 122.6, 101.5 121.8
+Q 101.5 120.7, 100.8 120.2
+Q 100.2 119.7, 98.9 119.7
+L 98.1 119.7
+L 98.1 118.5
+L 98.8 118.5
+Q 100.0 118.5, 100.6 118.0
+Q 101.2 117.5, 101.2 116.5
+Q 101.2 115.8, 100.7 115.4
+Q 100.2 114.9, 99.3 114.9
+Q 98.4 114.9, 97.8 115.3
+Q 97.2 115.6, 96.8 116.4
+L 95.7 115.8
+Q 96.1 114.9, 97.1 114.3
+Q 98.0 113.7, 99.3 113.7
+Q 100.9 113.7, 101.8 114.5
+Q 102.8 115.2, 102.8 116.5
+Q 102.8 117.4, 102.3 118.0
+Q 101.8 118.7, 100.9 119.0
+' fill='#191919'/>
+<path class='atom-3' d='M 8.3 31.6
+L 10.7 29.2
+L 7.5 28.5
+L 8.0 26.8
+L 11.0 28.3
+L 10.6 25.1
+L 12.3 25.0
+L 11.8 28.3
+L 14.8 26.9
+L 15.4 28.5
+L 12.1 29.1
+L 14.4 31.6
+L 13.0 32.6
+L 11.4 29.6
+L 9.7 32.6
+L 8.3 31.6
+' fill='#191919'/>
+<path class='atom-3' d='M 17.1 25.3
+L 19.4 25.3
+L 19.4 32.4
+L 27.9 32.4
+L 27.9 25.3
+L 30.1 25.3
+L 30.1 41.9
+L 27.9 41.9
+L 27.9 34.3
+L 19.4 34.3
+L 19.4 41.9
+L 17.1 41.9
+L 17.1 25.3
+' fill='#191919'/>
+<path class='atom-3' d='M 33.2 41.4
+Q 33.6 40.3, 34.6 39.7
+Q 35.6 39.2, 36.9 39.2
+Q 38.5 39.2, 39.5 40.1
+Q 40.4 41.0, 40.4 42.6
+Q 40.4 44.2, 39.2 45.7
+Q 38.0 47.2, 35.5 49.0
+L 40.6 49.0
+L 40.6 50.3
+L 33.2 50.3
+L 33.2 49.2
+Q 35.2 47.8, 36.5 46.7
+Q 37.7 45.6, 38.3 44.6
+Q 38.9 43.6, 38.9 42.6
+Q 38.9 41.6, 38.3 41.0
+Q 37.8 40.4, 36.9 40.4
+Q 36.0 40.4, 35.4 40.8
+Q 34.8 41.1, 34.4 41.9
+L 33.2 41.4
+' fill='#191919'/>
+</svg>
+</div>
+                <dl>
+                    <div><dt>Feature importance</dt><dd>0.051405</dd></div>
+                    <div><dt>Representative fitness</dt><dd>3.33905e-09</dd></div>
+                    <div><dt>Molecules containing bit</dt><dd>3,033</dd></div>
+                    <div><dt>Count in representative</dt><dd>6</dd></div>
+                    <div><dt>Mean count when present</dt><dd>1.305</dd></div>
+                    <div><dt>Representative row</dt><dd>14058</dd></div>
+                </dl>
+                <details>
+                    <summary>Show representative SMILES</summary>
+                    <p><strong>Original:</strong><br><code>[H]C1=NC([H])(C([H])([H])[H])C([H])([H])C([H])(C([H])([H])[H])C([H])([H])C([H])([H])C([H])(C([H])([H])[H])C([H])([H])C([H])(C([H])([H])[H])C([H])([H])C([H])(C([H])([H])[H])C([H])([H])C(C([H])=C([H])S[Au])=C([H])C([H])(C([H])([H])C([H])=C([H])C([H])([H])C([H])([H])C([H])([H])[H])C([H])=C1[H]</code></p>
+                    <p><strong>Canonical:</strong><br><code>CCCC=CCC1C=CC=NC(C)CC(C)CCC(C)CC(C)CC(C)CC(C=C[S][Au])=C1</code></p>
+                </details>
+            </article><article class="bit-card">
+                <div class="card-heading">
+                    <div>
+                        <span class="rank">Rank 4</span>
+                        <h2>Morgan bit 1873</h2>
+                    </div>
+                    <strong>0.041492</strong>
+                </div>
+                <div class="importance-track" title="Relative feature importance">
+                    <div style="width: 7.945%"></div>
+                </div>
+                <div class="fragment-image"><?xml version='1.0' encoding='iso-8859-1'?>
+<svg version='1.1' baseProfile='full'
+              xmlns='http://www.w3.org/2000/svg'
+                      xmlns:rdkit='http://www.rdkit.org/xml'
+                      xmlns:xlink='http://www.w3.org/1999/xlink'
+                  xml:space='preserve'
+width='150px' height='150px' viewBox='0 0 150 150'>
+<!-- END OF HEADER -->
+<rect style='opacity:1.0;fill:#FFFFFF;stroke:none' width='150.0' height='150.0' x='0.0' y='0.0'> </rect>
+<ellipse cx='80.1' cy='83.8' rx='12.0' ry='12.0' class='atom-1'  style='fill:#9999E5;fill-rule:evenodd;stroke:#9999E5;stroke-width:1.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-0 atom-0 atom-1' d='M 133.2,75.0 L 80.1,83.8' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:3.2px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-0 atom-0 atom-1' d='M 131.8,66.1 L 81.0,74.6' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:3.2px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-1 atom-1 atom-2' d='M 80.1,83.8 L 32.6,66.0' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:3.2px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path d='M 82.7,83.4 L 80.1,83.8 L 77.7,82.9' style='fill:none;stroke:#E5E5E5;stroke-width:3.2px;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:10;stroke-opacity:1;' />
+<path class='atom-0' d='M 135.3 67.7
+L 137.8 65.1
+L 134.5 64.4
+L 135.0 62.7
+L 138.0 64.3
+L 137.6 60.9
+L 139.4 60.9
+L 138.9 64.3
+L 142.0 62.8
+L 142.5 64.4
+L 139.1 65.1
+L 141.5 67.6
+L 140.1 68.7
+L 138.4 65.5
+L 136.7 68.7
+L 135.3 67.7
+' fill='#191919'/>
+<path class='atom-2' d='M 8.3 60.9
+L 10.8 58.4
+L 7.5 57.7
+L 8.0 56.0
+L 11.0 57.5
+L 10.6 54.2
+L 12.4 54.2
+L 11.9 57.5
+L 15.0 56.1
+L 15.5 57.7
+L 12.2 58.3
+L 14.6 60.9
+L 13.1 61.9
+L 11.5 58.8
+L 9.8 61.9
+L 8.3 60.9
+' fill='#191919'/>
+<path class='atom-2' d='M 17.3 54.5
+L 19.6 54.5
+L 19.6 61.7
+L 28.3 61.7
+L 28.3 54.5
+L 30.6 54.5
+L 30.6 71.4
+L 28.3 71.4
+L 28.3 63.6
+L 19.6 63.6
+L 19.6 71.4
+L 17.3 71.4
+L 17.3 54.5
+' fill='#191919'/>
+</svg>
+</div>
+                <dl>
+                    <div><dt>Feature importance</dt><dd>0.041492</dd></div>
+                    <div><dt>Representative fitness</dt><dd>0.414972</dd></div>
+                    <div><dt>Molecules containing bit</dt><dd>35,212</dd></div>
+                    <div><dt>Count in representative</dt><dd>17</dd></div>
+                    <div><dt>Mean count when present</dt><dd>6.283</dd></div>
+                    <div><dt>Representative row</dt><dd>25288</dd></div>
+                </dl>
+                <details>
+                    <summary>Show representative SMILES</summary>
+                    <p><strong>Original:</strong><br><code>[H]OC1=C([H])C([H])=C(C([H])([H])[H])C([H])=C([H])C(C2=C([H])C([H])=C=C2[H])=NC([H])=C(C#Cc2c([H])c([H])c(C3=C([H])C(C([H])([H])S[Au])=C=C3[H])c([H])c([H])c(Cl)c([H])c(F)c2[H])N=C1[H]</code></p>
+                    <p><strong>Canonical:</strong><br><code>CC1=CC=C(O)C=NC(C#Cc2ccc(C3=CC(C[S][Au])=C=C3)ccc(Cl)cc(F)c2)=CN=C(C2=CC=C=C2)C=C1</code></p>
+                </details>
+            </article><article class="bit-card">
+                <div class="card-heading">
+                    <div>
+                        <span class="rank">Rank 5</span>
+                        <h2>Morgan bit 926</h2>
+                    </div>
+                    <strong>0.021268</strong>
+                </div>
+                <div class="importance-track" title="Relative feature importance">
+                    <div style="width: 4.073%"></div>
+                </div>
+                <div class="fragment-image"><?xml version='1.0' encoding='iso-8859-1'?>
+<svg version='1.1' baseProfile='full'
+              xmlns='http://www.w3.org/2000/svg'
+                      xmlns:rdkit='http://www.rdkit.org/xml'
+                      xmlns:xlink='http://www.w3.org/1999/xlink'
+                  xml:space='preserve'
+width='150px' height='150px' viewBox='0 0 150 150'>
+<!-- END OF HEADER -->
+<rect style='opacity:1.0;fill:#FFFFFF;stroke:none' width='150.0' height='150.0' x='0.0' y='0.0'> </rect>
+<ellipse cx='62.1' cy='83.1' rx='14.3' ry='14.3' class='atom-1'  style='fill:#9999E5;fill-rule:evenodd;stroke:#9999E5;stroke-width:1.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-0 atom-0 atom-1' d='M 106.9,125.4 L 62.1,83.1' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:3.8px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-1 atom-1 atom-2' d='M 62.1,83.1 L 43.0,40.6' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:3.8px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path d='M 64.3,85.2 L 62.1,83.1 L 61.1,81.0' style='fill:none;stroke:#E5E5E5;stroke-width:3.8px;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:10;stroke-opacity:1;' />
+<path class='atom-0' d='M 110.3 129.9
+L 113.2 126.9
+L 109.3 126.1
+L 109.9 124.1
+L 113.5 125.9
+L 113.0 121.9
+L 115.1 121.9
+L 114.5 125.9
+L 118.2 124.2
+L 118.9 126.1
+L 114.9 126.8
+L 117.7 129.9
+L 116.0 131.2
+L 114.0 127.4
+L 112.0 131.2
+L 110.3 129.9
+' fill='#191919'/>
+<path class='atom-0' d='M 121.0 122.2
+L 123.7 122.2
+L 123.7 130.9
+L 134.1 130.9
+L 134.1 122.2
+L 136.8 122.2
+L 136.8 142.5
+L 134.1 142.5
+L 134.1 133.1
+L 123.7 133.1
+L 123.7 142.5
+L 121.0 142.5
+L 121.0 122.2
+' fill='#191919'/>
+<path class='atom-2' d='M 14.1 15.5
+L 17.1 12.5
+L 13.2 11.7
+L 13.8 9.7
+L 17.4 11.5
+L 16.9 7.5
+L 19.0 7.5
+L 18.4 11.5
+L 22.1 9.8
+L 22.7 11.7
+L 18.7 12.5
+L 21.6 15.5
+L 19.8 16.8
+L 17.9 13.0
+L 15.9 16.8
+L 14.1 15.5
+' fill='#191919'/>
+<path class='atom-2' d='M 24.9 7.8
+L 27.6 7.8
+L 27.6 16.5
+L 38.0 16.5
+L 38.0 7.8
+L 40.7 7.8
+L 40.7 28.1
+L 38.0 28.1
+L 38.0 18.7
+L 27.6 18.7
+L 27.6 28.1
+L 24.9 28.1
+L 24.9 7.8
+' fill='#191919'/>
+<path class='atom-2' d='M 44.5 27.4
+Q 45.0 26.1, 46.2 25.4
+Q 47.4 24.7, 49.0 24.7
+Q 51.0 24.7, 52.1 25.8
+Q 53.3 26.9, 53.3 28.8
+Q 53.3 30.8, 51.8 32.7
+Q 50.3 34.5, 47.3 36.7
+L 53.5 36.7
+L 53.5 38.2
+L 44.5 38.2
+L 44.5 37.0
+Q 47.0 35.2, 48.5 33.9
+Q 49.9 32.5, 50.7 31.4
+Q 51.4 30.2, 51.4 28.9
+Q 51.4 27.7, 50.7 26.9
+Q 50.1 26.2, 49.0 26.2
+Q 47.9 26.2, 47.2 26.7
+Q 46.5 27.1, 46.0 28.1
+L 44.5 27.4
+' fill='#191919'/>
+</svg>
+</div>
+                <dl>
+                    <div><dt>Feature importance</dt><dd>0.021268</dd></div>
+                    <div><dt>Representative fitness</dt><dd>2.0484e-15</dd></div>
+                    <div><dt>Molecules containing bit</dt><dd>11,526</dd></div>
+                    <div><dt>Count in representative</dt><dd>15</dd></div>
+                    <div><dt>Mean count when present</dt><dd>1.705</dd></div>
+                    <div><dt>Representative row</dt><dd>6243</dd></div>
+                </dl>
+                <details>
+                    <summary>Show representative SMILES</summary>
+                    <p><strong>Original:</strong><br><code>[H]C([H])([H])C(C([H])([H])[H])(C([H])([H])C([H])([H])C([H])([H])C([H])([H])C([H])([H])C([H])([H])C([H])([H])C([H])([H])S[Au])C([H])([H])C1([H])C([H])([H])C([H])([H])C([H])([H])C([H])([H])C([H])([H])C([H])([H])C([H])([H])C([H])([H])C([H])([H])C([H])([H])C([H])([H])C([H])([H])C([H])([H])C([H])([H])C1([H])[H]</code></p>
+                    <p><strong>Canonical:</strong><br><code>CC(C)(CCCCCCCC[S][Au])CC1CCCCCCCCCCCCCCC1</code></p>
+                </details>
+            </article><article class="bit-card">
+                <div class="card-heading">
+                    <div>
+                        <span class="rank">Rank 6</span>
+                        <h2>Morgan bit 694</h2>
+                    </div>
+                    <strong>0.016206</strong>
+                </div>
+                <div class="importance-track" title="Relative feature importance">
+                    <div style="width: 3.103%"></div>
+                </div>
+                <div class="fragment-image"><?xml version='1.0' encoding='iso-8859-1'?>
+<svg version='1.1' baseProfile='full'
+              xmlns='http://www.w3.org/2000/svg'
+                      xmlns:rdkit='http://www.rdkit.org/xml'
+                      xmlns:xlink='http://www.w3.org/1999/xlink'
+                  xml:space='preserve'
+width='150px' height='150px' viewBox='0 0 150 150'>
+<!-- END OF HEADER -->
+<rect style='opacity:1.0;fill:#FFFFFF;stroke:none' width='150.0' height='150.0' x='0.0' y='0.0'> </rect>
+<ellipse cx='80.7' cy='58.2' rx='13.3' ry='13.3' class='atom-0'  style='fill:#9999E5;fill-rule:evenodd;stroke:#9999E5;stroke-width:1.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-0 atom-0 atom-1' d='M 80.7,58.2 L 131.4,87.6' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:3.5px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-1 atom-0 atom-2' d='M 80.7,58.2 L 32.8,85.8' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:3.5px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-1 atom-0 atom-2' d='M 80.7,69.6 L 37.7,94.4' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:3.5px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path d='M 83.2,59.6 L 80.7,58.2 L 78.3,59.5' style='fill:none;stroke:#E5E5E5;stroke-width:3.5px;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:10;stroke-opacity:1;' />
+<path class='atom-1' d='M 134.5 89.3
+L 137.3 86.5
+L 133.6 85.7
+L 134.2 83.9
+L 137.5 85.6
+L 137.1 81.9
+L 139.1 81.8
+L 138.5 85.5
+L 141.9 83.9
+L 142.5 85.7
+L 138.8 86.4
+L 141.4 89.3
+L 139.8 90.4
+L 138.0 86.9
+L 136.1 90.4
+L 134.5 89.3
+' fill='#191919'/>
+<path class='atom-2' d='M 8.4 93.5
+L 11.2 90.6
+L 7.5 89.9
+L 8.1 88.0
+L 11.4 89.7
+L 10.9 86.0
+L 12.9 86.0
+L 12.4 89.7
+L 15.8 88.1
+L 16.4 89.9
+L 12.7 90.6
+L 15.3 93.4
+L 13.7 94.6
+L 11.9 91.1
+L 10.0 94.6
+L 8.4 93.5
+' fill='#191919'/>
+<path class='atom-2' d='M 18.4 86.3
+L 20.9 86.3
+L 20.9 94.3
+L 30.5 94.3
+L 30.5 86.3
+L 33.1 86.3
+L 33.1 105.1
+L 30.5 105.1
+L 30.5 96.4
+L 20.9 96.4
+L 20.9 105.1
+L 18.4 105.1
+L 18.4 86.3
+' fill='#191919'/>
+</svg>
+</div>
+                <dl>
+                    <div><dt>Feature importance</dt><dd>0.016206</dd></div>
+                    <div><dt>Representative fitness</dt><dd>1.23061e-11</dd></div>
+                    <div><dt>Molecules containing bit</dt><dd>23,596</dd></div>
+                    <div><dt>Count in representative</dt><dd>32</dd></div>
+                    <div><dt>Mean count when present</dt><dd>3.528</dd></div>
+                    <div><dt>Representative row</dt><dd>6238</dd></div>
+                </dl>
+                <details>
+                    <summary>Show representative SMILES</summary>
+                    <p><strong>Original:</strong><br><code>[H]C(S[Au])=C([H])C([H])=C([H])C([H])=C([H])C([H])=C([H])C([H])=C([H])C([H])=C([H])C([H])=C([H])C([H])=C([H])C([H])=C([H])C([H])=C([H])C([H])=C([H])C([H])=C([H])C([H])=C([H])C([H])=C([H])C([H])=C([H])C([H])([H])C([H])=C([H])C([H])([H])[H]</code></p>
+                    <p><strong>Canonical:</strong><br><code>CC=CCC=CC=CC=CC=CC=CC=CC=CC=CC=CC=CC=CC=CC=CC=CC=C[S][Au]</code></p>
+                </details>
+            </article><article class="bit-card">
+                <div class="card-heading">
+                    <div>
+                        <span class="rank">Rank 7</span>
+                        <h2>Morgan bit 738</h2>
+                    </div>
+                    <strong>0.014197</strong>
+                </div>
+                <div class="importance-track" title="Relative feature importance">
+                    <div style="width: 2.719%"></div>
+                </div>
+                <div class="fragment-image"><?xml version='1.0' encoding='iso-8859-1'?>
+<svg version='1.1' baseProfile='full'
+              xmlns='http://www.w3.org/2000/svg'
+                      xmlns:rdkit='http://www.rdkit.org/xml'
+                      xmlns:xlink='http://www.w3.org/1999/xlink'
+                  xml:space='preserve'
+width='150px' height='150px' viewBox='0 0 150 150'>
+<!-- END OF HEADER -->
+<rect style='opacity:1.0;fill:#FFFFFF;stroke:none' width='150.0' height='150.0' x='0.0' y='0.0'> </rect>
+<ellipse cx='54.2' cy='107.2' rx='10.6' ry='10.6' class='atom-1'  style='fill:#CCCCCC;fill-rule:evenodd;stroke:#CCCCCC;stroke-width:1.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<ellipse cx='48.9' cy='54.2' rx='10.6' ry='10.6' class='atom-2'  style='fill:#9999E5;fill-rule:evenodd;stroke:#9999E5;stroke-width:1.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<ellipse cx='92.0' cy='23.1' rx='10.6' ry='10.6' class='atom-3'  style='fill:#CCCCCC;fill-rule:evenodd;stroke:#CCCCCC;stroke-width:1.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-0 atom-0 atom-1' d='M 16.4,134.5 L 54.2,107.2' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:2.8px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-1 atom-1 atom-2' d='M 54.2,107.2 L 49.8,63.5' style='fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-1 atom-1 atom-2' d='M 62.2,106.4 L 57.7,62.7' style='fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-2 atom-2 atom-3' d='M 56.3,48.8 L 92.0,23.1' style='fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-3 atom-3 atom-4' d='M 92.0,23.1 L 135.2,42.5' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:2.8px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-3 atom-3 atom-4' d='M 93.0,32.3 L 132.0,49.8' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:2.8px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-4 atom-5 atom-1' d='M 97.5,126.6 L 54.2,107.2' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:2.8px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path d='M 91.1,23.7 L 92.0,23.1 L 93.1,23.6' style='fill:none;stroke:#000000;stroke-width:2.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:10;stroke-opacity:1;' />
+<path class='atom-0' d='M 8.2 136.6
+L 10.4 134.4
+L 7.5 133.8
+L 7.9 132.3
+L 10.7 133.6
+L 10.3 130.7
+L 11.9 130.7
+L 11.4 133.6
+L 14.2 132.3
+L 14.6 133.8
+L 11.7 134.3
+L 13.8 136.6
+L 12.5 137.6
+L 11.0 134.7
+L 9.5 137.6
+L 8.2 136.6
+' fill='#191919'/>
+<path class='atom-2' d='M 45.5 46.7
+L 50.5 54.7
+Q 51.0 55.5, 51.7 56.9
+Q 52.5 58.3, 52.6 58.4
+L 52.6 46.7
+L 54.6 46.7
+L 54.6 61.8
+L 52.5 61.8
+L 47.2 53.0
+Q 46.6 52.0, 45.9 50.8
+Q 45.3 49.7, 45.1 49.3
+L 45.1 61.8
+L 43.1 61.8
+L 43.1 46.7
+L 45.5 46.7
+' fill='#000000'/>
+<path class='atom-4' d='M 136.1 46.9
+L 138.3 44.6
+L 135.4 44.0
+L 135.8 42.5
+L 138.5 43.9
+L 138.1 40.9
+L 139.7 40.9
+L 139.3 43.8
+L 142.0 42.6
+L 142.5 44.0
+L 139.5 44.6
+L 141.6 46.8
+L 140.3 47.8
+L 138.9 45.0
+L 137.4 47.8
+L 136.1 46.9
+' fill='#191919'/>
+<path class='atom-5' d='M 99.9 127.3
+L 102.2 125.1
+L 99.2 124.5
+L 99.7 123.0
+L 102.4 124.3
+L 102.0 121.4
+L 103.6 121.3
+L 103.1 124.3
+L 105.9 123.0
+L 106.3 124.5
+L 103.4 125.0
+L 105.5 127.3
+L 104.2 128.2
+L 102.7 125.4
+L 101.2 128.2
+L 99.9 127.3
+' fill='#191919'/>
+</svg>
+</div>
+                <dl>
+                    <div><dt>Feature importance</dt><dd>0.014197</dd></div>
+                    <div><dt>Representative fitness</dt><dd>1.25856</dd></div>
+                    <div><dt>Molecules containing bit</dt><dd>9,119</dd></div>
+                    <div><dt>Count in representative</dt><dd>4</dd></div>
+                    <div><dt>Mean count when present</dt><dd>2.252</dd></div>
+                    <div><dt>Representative row</dt><dd>32473</dd></div>
+                </dl>
+                <details>
+                    <summary>Show representative SMILES</summary>
+                    <p><strong>Original:</strong><br><code>[H]C#CC1=NC([H])=C(C2=NC([H])=C(C3=C([H])C([H])=C(C#CS[Au])C([H])=C([H])N=C3N([H])[H])C([H])=C([H])N=C2C#C[H])C(=O)C1=O</code></p>
+                    <p><strong>Canonical:</strong><br><code>C#CC1=NC=C(C2=NC=C(C3=CC=C(C#C[S][Au])C=CN=C3N)C=CN=C2C#C)C(=O)C1=O</code></p>
+                </details>
+            </article><article class="bit-card">
+                <div class="card-heading">
+                    <div>
+                        <span class="rank">Rank 8</span>
+                        <h2>Morgan bit 807</h2>
+                    </div>
+                    <strong>0.012382</strong>
+                </div>
+                <div class="importance-track" title="Relative feature importance">
+                    <div style="width: 2.371%"></div>
+                </div>
+                <div class="fragment-image"><?xml version='1.0' encoding='iso-8859-1'?>
+<svg version='1.1' baseProfile='full'
+              xmlns='http://www.w3.org/2000/svg'
+                      xmlns:rdkit='http://www.rdkit.org/xml'
+                      xmlns:xlink='http://www.w3.org/1999/xlink'
+                  xml:space='preserve'
+width='150px' height='150px' viewBox='0 0 150 150'>
+<!-- END OF HEADER -->
+<rect style='opacity:1.0;fill:#FFFFFF;stroke:none' width='150.0' height='150.0' x='0.0' y='0.0'> </rect>
+<ellipse cx='50.9' cy='107.8' rx='22.1' ry='22.1' class='atom-0'  style='fill:#9999E5;fill-rule:evenodd;stroke:#9999E5;stroke-width:1.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-0 atom-0 atom-1' d='M 67.6,93.0 L 130.9,36.7' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:5.9px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='atom-0' d='M 10.0 93.8
+L 13.8 93.8
+L 13.8 105.9
+L 28.3 105.9
+L 28.3 93.8
+L 32.1 93.8
+L 32.1 122.2
+L 28.3 122.2
+L 28.3 109.1
+L 13.8 109.1
+L 13.8 122.2
+L 10.0 122.2
+L 10.0 93.8
+' fill='#000000'/>
+<path class='atom-0' d='M 37.9 107.9
+Q 37.9 101.1, 41.3 97.3
+Q 44.6 93.5, 50.9 93.5
+Q 57.2 93.5, 60.6 97.3
+Q 63.9 101.1, 63.9 107.9
+Q 63.9 114.8, 60.5 118.7
+Q 57.1 122.6, 50.9 122.6
+Q 44.7 122.6, 41.3 118.7
+Q 37.9 114.8, 37.9 107.9
+M 50.9 119.4
+Q 55.2 119.4, 57.6 116.5
+Q 59.9 113.6, 59.9 107.9
+Q 59.9 102.4, 57.6 99.6
+Q 55.2 96.7, 50.9 96.7
+Q 46.6 96.7, 44.2 99.5
+Q 41.9 102.3, 41.9 107.9
+Q 41.9 113.6, 44.2 116.5
+Q 46.6 119.4, 50.9 119.4
+' fill='#000000'/>
+<path class='atom-1' d='M 128.0 31.3
+L 132.2 27.1
+L 126.6 26.0
+L 127.5 23.1
+L 132.6 25.7
+L 131.8 20.1
+L 134.8 20.1
+L 134.0 25.7
+L 139.2 23.3
+L 140.0 26.0
+L 134.4 27.0
+L 138.4 31.3
+L 136.0 33.1
+L 133.2 27.8
+L 130.4 33.1
+L 128.0 31.3
+' fill='#191919'/>
+</svg>
+</div>
+                <dl>
+                    <div><dt>Feature importance</dt><dd>0.012382</dd></div>
+                    <div><dt>Representative fitness</dt><dd>0.217242</dd></div>
+                    <div><dt>Molecules containing bit</dt><dd>24,247</dd></div>
+                    <div><dt>Count in representative</dt><dd>9</dd></div>
+                    <div><dt>Mean count when present</dt><dd>1.555</dd></div>
+                    <div><dt>Representative row</dt><dd>3466</dd></div>
+                </dl>
+                <details>
+                    <summary>Show representative SMILES</summary>
+                    <p><strong>Original:</strong><br><code>[H]OC1=C=C([H])C(=C([H])C(=C([H])C(=C(F)C#CC(=C(F)C#CC(=C([H])S[Au])C([H])([H])[H])C(O[H])=C([H])C([H])=C2C([H])=C=C(C([H])([H])[H])C([H])=C2[H])C([H])([H])[H])C([H])([H])[H])C([H])=C1[H]</code></p>
+                    <p><strong>Canonical:</strong><br><code>CC1=C=CC(=CC=C(O)C(C#CC(F)=C(C)C=C(C)C=C2C=C=C(O)C=C2)=C(F)C#CC(C)=C[S][Au])C=C1</code></p>
+                </details>
+            </article><article class="bit-card">
+                <div class="card-heading">
+                    <div>
+                        <span class="rank">Rank 9</span>
+                        <h2>Morgan bit 84</h2>
+                    </div>
+                    <strong>0.009763</strong>
+                </div>
+                <div class="importance-track" title="Relative feature importance">
+                    <div style="width: 1.869%"></div>
+                </div>
+                <div class="fragment-image"><?xml version='1.0' encoding='iso-8859-1'?>
+<svg version='1.1' baseProfile='full'
+              xmlns='http://www.w3.org/2000/svg'
+                      xmlns:rdkit='http://www.rdkit.org/xml'
+                      xmlns:xlink='http://www.w3.org/1999/xlink'
+                  xml:space='preserve'
+width='150px' height='150px' viewBox='0 0 150 150'>
+<!-- END OF HEADER -->
+<rect style='opacity:1.0;fill:#FFFFFF;stroke:none' width='150.0' height='150.0' x='0.0' y='0.0'> </rect>
+<ellipse cx='48.6' cy='43.0' rx='6.7' ry='6.7' class='atom-1'  style='fill:#CCCCCC;fill-rule:evenodd;stroke:#CCCCCC;stroke-width:1.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<ellipse cx='67.1' cy='71.6' rx='6.7' ry='6.7' class='atom-2'  style='fill:#9999E5;fill-rule:evenodd;stroke:#9999E5;stroke-width:1.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<ellipse cx='78.5' cy='87.5' rx='6.7' ry='6.7' class='atom-3'  style='fill:#CCCCCC;fill-rule:evenodd;stroke:#CCCCCC;stroke-width:1.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-0 atom-0 atom-1' d='M 21.5,51.6 L 48.6,43.0' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:1.8px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-1 atom-1 atom-2' d='M 48.6,43.0 L 67.1,71.6' style='fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-1 atom-1 atom-2' d='M 52.8,40.3 L 71.2,68.8' style='fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-2 atom-2 atom-3' d='M 67.1,71.6 L 78.5,87.5' style='fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-3 atom-3 atom-4' d='M 80.2,89.6 L 130.7,73.5' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:1.8px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-3 atom-3 atom-4' d='M 77.0,85.4 L 129.2,68.9' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:1.8px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-4 atom-3 atom-5' d='M 78.5,87.5 L 96.4,110.0' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:1.8px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-5 atom-6 atom-1' d='M 61.3,51.4 L 48.6,43.0' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:1.8px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path d='M 66.2,70.2 L 67.1,71.6 L 67.7,72.4' style='fill:none;stroke:#000000;stroke-width:2.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:10;stroke-opacity:1;' />
+<path d='M 78.2,87.1 L 78.5,87.5 L 79.0,88.1' style='fill:none;stroke:#000000;stroke-width:2.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:10;stroke-opacity:1;' />
+<path class='atom-0' d='M 8.0 52.0
+L 9.3 50.6
+L 7.5 50.2
+L 7.8 49.3
+L 9.5 50.1
+L 9.2 48.3
+L 10.2 48.3
+L 10.0 50.1
+L 11.7 49.3
+L 12.0 50.2
+L 10.1 50.6
+L 11.5 52.0
+L 10.6 52.6
+L 9.7 50.8
+L 8.8 52.6
+L 8.0 52.0
+' fill='#191919'/>
+<path class='atom-0' d='M 13.0 48.4
+L 14.3 48.4
+L 14.3 52.5
+L 19.1 52.5
+L 19.1 48.4
+L 20.4 48.4
+L 20.4 57.9
+L 19.1 57.9
+L 19.1 53.5
+L 14.3 53.5
+L 14.3 57.9
+L 13.0 57.9
+L 13.0 48.4
+' fill='#191919'/>
+<path class='atom-0' d='M 22.2 57.6
+Q 22.4 57.0, 23.0 56.7
+Q 23.5 56.3, 24.3 56.3
+Q 25.2 56.3, 25.8 56.8
+Q 26.3 57.3, 26.3 58.3
+Q 26.3 59.2, 25.6 60.1
+Q 24.9 60.9, 23.5 61.9
+L 26.4 61.9
+L 26.4 62.7
+L 22.2 62.7
+L 22.2 62.1
+Q 23.3 61.2, 24.0 60.6
+Q 24.7 60.0, 25.1 59.4
+Q 25.4 58.9, 25.4 58.3
+Q 25.4 57.7, 25.1 57.4
+Q 24.8 57.0, 24.3 57.0
+Q 23.8 57.0, 23.4 57.2
+Q 23.1 57.4, 22.9 57.9
+L 22.2 57.6
+' fill='#191919'/>
+<path class='atom-4' d='M 130.0 69.5
+L 131.4 68.1
+L 129.6 67.8
+L 129.9 66.8
+L 131.6 67.7
+L 131.3 65.8
+L 132.3 65.8
+L 132.1 67.6
+L 133.8 66.8
+L 134.1 67.8
+L 132.2 68.1
+L 133.5 69.5
+L 132.7 70.1
+L 131.8 68.4
+L 130.9 70.1
+L 130.0 69.5
+' fill='#191919'/>
+<path class='atom-4' d='M 135.1 65.9
+L 136.4 65.9
+L 136.4 70.0
+L 141.2 70.0
+L 141.2 65.9
+L 142.5 65.9
+L 142.5 75.4
+L 141.2 75.4
+L 141.2 71.0
+L 136.4 71.0
+L 136.4 75.4
+L 135.1 75.4
+L 135.1 65.9
+' fill='#191919'/>
+<path class='atom-5' d='M 97.9 113.2
+L 99.3 111.8
+L 97.4 111.4
+L 97.7 110.4
+L 99.4 111.3
+L 99.2 109.4
+L 100.2 109.4
+L 99.9 111.3
+L 101.6 110.5
+L 101.9 111.4
+L 100.1 111.7
+L 101.4 113.2
+L 100.6 113.7
+L 99.7 112.0
+L 98.7 113.7
+L 97.9 113.2
+' fill='#191919'/>
+<path class='atom-6' d='M 62.8 52.6
+L 64.2 51.1
+L 62.3 50.8
+L 62.6 49.8
+L 64.3 50.7
+L 64.1 48.8
+L 65.1 48.8
+L 64.8 50.7
+L 66.5 49.9
+L 66.8 50.8
+L 65.0 51.1
+L 66.3 52.5
+L 65.5 53.1
+L 64.6 51.4
+L 63.6 53.1
+L 62.8 52.6
+' fill='#191919'/>
+<path class='atom-6' d='M 67.8 49.0
+L 69.1 49.0
+L 69.1 53.0
+L 74.0 53.0
+L 74.0 49.0
+L 75.2 49.0
+L 75.2 58.4
+L 74.0 58.4
+L 74.0 54.1
+L 69.1 54.1
+L 69.1 58.4
+L 67.8 58.4
+L 67.8 49.0
+' fill='#191919'/>
+</svg>
+</div>
+                <dl>
+                    <div><dt>Feature importance</dt><dd>0.009763</dd></div>
+                    <div><dt>Representative fitness</dt><dd>6.59185e-05</dd></div>
+                    <div><dt>Molecules containing bit</dt><dd>6,442</dd></div>
+                    <div><dt>Count in representative</dt><dd>5</dd></div>
+                    <div><dt>Mean count when present</dt><dd>1.302</dd></div>
+                    <div><dt>Representative row</dt><dd>13123</dd></div>
+                </dl>
+                <details>
+                    <summary>Show representative SMILES</summary>
+                    <p><strong>Original:</strong><br><code>[H]C1=C=C([H])C([H])([H])C2=C([H])C(=C([H])C3=C([H])C4=C([H])N=C([H])C(=O)C(=NC(=O)C([H])([H])[H])C([H])(C3([H])[H])C([H])([H])C4([H])[H])C(=C([H])C(C([H])=C([H])S[Au])=C2[H])C([H])=C1C([H])([H])[H]</code></p>
+                    <p><strong>Canonical:</strong><br><code>CC(=O)N=C1C(=O)C=NC=C2C=C(C=C3C=C4C=C(C=C[S][Au])C=C3C=C(C)C=C=CC4)CC1CC2</code></p>
+                </details>
+            </article><article class="bit-card">
+                <div class="card-heading">
+                    <div>
+                        <span class="rank">Rank 10</span>
+                        <h2>Morgan bit 576</h2>
+                    </div>
+                    <strong>0.005036</strong>
+                </div>
+                <div class="importance-track" title="Relative feature importance">
+                    <div style="width: 0.964%"></div>
+                </div>
+                <div class="fragment-image"><?xml version='1.0' encoding='iso-8859-1'?>
+<svg version='1.1' baseProfile='full'
+              xmlns='http://www.w3.org/2000/svg'
+                      xmlns:rdkit='http://www.rdkit.org/xml'
+                      xmlns:xlink='http://www.w3.org/1999/xlink'
+                  xml:space='preserve'
+width='150px' height='150px' viewBox='0 0 150 150'>
+<!-- END OF HEADER -->
+<rect style='opacity:1.0;fill:#FFFFFF;stroke:none' width='150.0' height='150.0' x='0.0' y='0.0'> </rect>
+<ellipse cx='112.6' cy='112.0' rx='18.3' ry='18.3' class='atom-1'  style='fill:#9999E5;fill-rule:evenodd;stroke:#9999E5;stroke-width:1.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-0 atom-0 atom-1' d='M 125.1,23.3 L 112.6,112.0' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:4.9px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-0 atom-0 atom-1' d='M 111.5,21.4 L 100.1,102.3' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:4.9px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-1 atom-1 atom-2' d='M 112.6,112.0 L 37.0,142.5' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:4.9px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-1 atom-1 atom-2' d='M 100.1,102.3 L 31.9,129.8' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:4.9px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path d='M 113.2,107.6 L 112.6,112.0 L 108.8,113.6' style='fill:none;stroke:#E5E5E5;stroke-width:4.9px;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:10;stroke-opacity:1;' />
+<path class='atom-0' d='M 113.7 17.8
+L 117.5 13.9
+L 112.4 12.9
+L 113.2 10.3
+L 117.8 12.6
+L 117.2 7.5
+L 119.9 7.5
+L 119.2 12.6
+L 123.9 10.4
+L 124.7 12.9
+L 119.6 13.8
+L 123.2 17.7
+L 121.0 19.3
+L 118.5 14.5
+L 115.9 19.3
+L 113.7 17.8
+' fill='#191919'/>
+<path class='atom-2' d='M 20.4 136.9
+L 24.2 133.1
+L 19.2 132.0
+L 19.9 129.5
+L 24.6 131.8
+L 23.9 126.7
+L 26.7 126.7
+L 25.9 131.8
+L 30.6 129.6
+L 31.4 132.0
+L 26.3 133.0
+L 30.0 136.9
+L 27.7 138.5
+L 25.2 133.7
+L 22.6 138.5
+L 20.4 136.9
+' fill='#191919'/>
+</svg>
+</div>
+                <dl>
+                    <div><dt>Feature importance</dt><dd>0.005036</dd></div>
+                    <div><dt>Representative fitness</dt><dd>1.26183</dd></div>
+                    <div><dt>Molecules containing bit</dt><dd>20,551</dd></div>
+                    <div><dt>Count in representative</dt><dd>4</dd></div>
+                    <div><dt>Mean count when present</dt><dd>1.198</dd></div>
+                    <div><dt>Representative row</dt><dd>15780</dd></div>
+                </dl>
+                <details>
+                    <summary>Show representative SMILES</summary>
+                    <p><strong>Original:</strong><br><code>[H]OC1=C=C(C([H])([H])S[Au])C([H])=C([H])C1=C1C([H])=C=C([H])C1=C(c1c([H])c([H])c([H])c([H])c1C(=C1C([H])=C=C([H])C1=C1C(C([H])([H])[H])=C=C(F)C([H])=C1[H])C([H])([H])[H])C([H])([H])[H]</code></p>
+                    <p><strong>Canonical:</strong><br><code>CC1=C=C(F)C=CC1=C1C=C=CC1=C(C)c1ccccc1C(C)=C1C=C=CC1=C1C=CC(C[S][Au])=C=C1O</code></p>
+                </details>
+            </article><article class="bit-card">
+                <div class="card-heading">
+                    <div>
+                        <span class="rank">Rank 11</span>
+                        <h2>Morgan bit 835</h2>
+                    </div>
+                    <strong>0.004613</strong>
+                </div>
+                <div class="importance-track" title="Relative feature importance">
+                    <div style="width: 0.883%"></div>
+                </div>
+                <div class="fragment-image"><?xml version='1.0' encoding='iso-8859-1'?>
+<svg version='1.1' baseProfile='full'
+              xmlns='http://www.w3.org/2000/svg'
+                      xmlns:rdkit='http://www.rdkit.org/xml'
+                      xmlns:xlink='http://www.w3.org/1999/xlink'
+                  xml:space='preserve'
+width='150px' height='150px' viewBox='0 0 150 150'>
+<!-- END OF HEADER -->
+<rect style='opacity:1.0;fill:#FFFFFF;stroke:none' width='150.0' height='150.0' x='0.0' y='0.0'> </rect>
+<ellipse cx='38.2' cy='100.8' rx='10.0' ry='10.0' class='atom-0'  style='fill:#9999E5;fill-rule:evenodd;stroke:#9999E5;stroke-width:1.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<ellipse cx='87.9' cy='100.4' rx='10.0' ry='10.0' class='atom-1'  style='fill:#CCCCCC;fill-rule:evenodd;stroke:#CCCCCC;stroke-width:1.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-0 atom-0 atom-1' d='M 38.2,100.8 L 87.9,100.4' style='fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-1 atom-1 atom-2' d='M 83.6,100.4 L 105.0,136.7' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:2.7px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-1 atom-1 atom-2' d='M 90.0,96.6 L 111.4,132.9' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:2.7px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-2 atom-0 atom-4' d='M 38.2,100.8 L 12.9,58.0' style='fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-2 atom-0 atom-4' d='M 42.4,93.3 L 21.5,57.9' style='fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-3 atom-4 atom-5' d='M 12.9,58.0 L 36.8,15.6' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:2.7px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-4 atom-3 atom-1' d='M 111.9,58.0 L 87.9,100.4' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:2.7px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path d='M 40.7,100.8 L 38.2,100.8 L 36.9,98.7' style='fill:none;stroke:#000000;stroke-width:2.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:10;stroke-opacity:1;' />
+<path d='M 86.7,100.4 L 87.9,100.4 L 88.5,99.3' style='fill:none;stroke:#000000;stroke-width:2.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:10;stroke-opacity:1;' />
+<path d='M 13.5,59.1 L 12.9,58.0 L 13.5,56.9' style='fill:none;stroke:#000000;stroke-width:2.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:10;stroke-opacity:1;' />
+<path class='atom-2' d='M 110.5 141.6
+L 112.6 139.5
+L 109.9 139.0
+L 110.3 137.6
+L 112.8 138.8
+L 112.5 136.1
+L 113.9 136.1
+L 113.5 138.8
+L 116.1 137.6
+L 116.5 139.0
+L 113.7 139.5
+L 115.7 141.6
+L 114.5 142.5
+L 113.1 139.9
+L 111.8 142.5
+L 110.5 141.6
+' fill='#191919'/>
+<path class='atom-3' d='M 109.7 55.5
+L 111.8 53.4
+L 109.1 52.8
+L 109.5 51.4
+L 112.0 52.7
+L 111.6 49.9
+L 113.1 49.9
+L 112.7 52.6
+L 115.3 51.5
+L 115.7 52.8
+L 112.9 53.3
+L 114.9 55.5
+L 113.7 56.3
+L 112.3 53.7
+L 110.9 56.3
+L 109.7 55.5
+' fill='#191919'/>
+<path class='atom-3' d='M 117.2 50.1
+L 119.1 50.1
+L 119.1 56.1
+L 126.3 56.1
+L 126.3 50.1
+L 128.2 50.1
+L 128.2 64.2
+L 126.3 64.2
+L 126.3 57.7
+L 119.1 57.7
+L 119.1 64.2
+L 117.2 64.2
+L 117.2 50.1
+' fill='#191919'/>
+<path class='atom-3' d='M 130.9 63.7
+Q 131.2 62.8, 132.0 62.4
+Q 132.8 61.9, 134.0 61.9
+Q 135.4 61.9, 136.2 62.6
+Q 137.0 63.4, 137.0 64.7
+Q 137.0 66.1, 135.9 67.4
+Q 134.9 68.7, 132.8 70.2
+L 137.1 70.2
+L 137.1 71.3
+L 130.8 71.3
+L 130.8 70.4
+Q 132.6 69.1, 133.6 68.2
+Q 134.6 67.3, 135.1 66.5
+Q 135.6 65.6, 135.6 64.8
+Q 135.6 63.9, 135.2 63.4
+Q 134.7 62.9, 134.0 62.9
+Q 133.2 62.9, 132.7 63.2
+Q 132.2 63.5, 131.9 64.2
+L 130.9 63.7
+' fill='#191919'/>
+<path class='atom-5' d='M 34.7 13.1
+L 36.8 11.0
+L 34.0 10.4
+L 34.4 9.0
+L 37.0 10.3
+L 36.6 7.5
+L 38.1 7.5
+L 37.7 10.3
+L 40.3 9.1
+L 40.7 10.4
+L 37.9 10.9
+L 39.9 13.1
+L 38.7 13.9
+L 37.3 11.3
+L 35.9 13.9
+L 34.7 13.1
+' fill='#191919'/>
+<path class='atom-5' d='M 42.2 7.7
+L 44.1 7.7
+L 44.1 13.7
+L 51.3 13.7
+L 51.3 7.7
+L 53.2 7.7
+L 53.2 21.8
+L 51.3 21.8
+L 51.3 15.3
+L 44.1 15.3
+L 44.1 21.8
+L 42.2 21.8
+L 42.2 7.7
+' fill='#191919'/>
+</svg>
+</div>
+                <dl>
+                    <div><dt>Feature importance</dt><dd>0.004613</dd></div>
+                    <div><dt>Representative fitness</dt><dd>3.98546e-05</dd></div>
+                    <div><dt>Molecules containing bit</dt><dd>9,527</dd></div>
+                    <div><dt>Count in representative</dt><dd>6</dd></div>
+                    <div><dt>Mean count when present</dt><dd>1.092</dd></div>
+                    <div><dt>Representative row</dt><dd>27327</dd></div>
+                </dl>
+                <details>
+                    <summary>Show representative SMILES</summary>
+                    <p><strong>Original:</strong><br><code>[H]/C(C1=NN=C(C([H])([H])S[Au])[C@]([H])(Br)C1([H])[H])=C([H])/C([H])=C(/[H])c1c([H])c(/C([H])=C(\[H])C2=NN=C(/C([H])=C(\[H])c3c([H])c([H])c([H])n3[H])C2([H])[H])c([H])n1[H]</code></p>
+                    <p><strong>Canonical:</strong><br><code>Br[C@@H]1CC(/C=C\C=C/c2cc(/C=C/C3=NN=C(/C=C/c4ccc[nH]4)C3)c[nH]2)=NN=C1C[S][Au]</code></p>
+                </details>
+            </article><article class="bit-card">
+                <div class="card-heading">
+                    <div>
+                        <span class="rank">Rank 12</span>
+                        <h2>Morgan bit 660</h2>
+                    </div>
+                    <strong>0.004276</strong>
+                </div>
+                <div class="importance-track" title="Relative feature importance">
+                    <div style="width: 0.819%"></div>
+                </div>
+                <div class="fragment-image"><?xml version='1.0' encoding='iso-8859-1'?>
+<svg version='1.1' baseProfile='full'
+              xmlns='http://www.w3.org/2000/svg'
+                      xmlns:rdkit='http://www.rdkit.org/xml'
+                      xmlns:xlink='http://www.w3.org/1999/xlink'
+                  xml:space='preserve'
+width='150px' height='150px' viewBox='0 0 150 150'>
+<!-- END OF HEADER -->
+<rect style='opacity:1.0;fill:#FFFFFF;stroke:none' width='150.0' height='150.0' x='0.0' y='0.0'> </rect>
+<ellipse cx='96.7' cy='69.0' rx='6.1' ry='6.1' class='atom-3'  style='fill:#9999E5;fill-rule:evenodd;stroke:#9999E5;stroke-width:1.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-0 atom-0 atom-1' d='M 11.4,43.1 L 38.6,51.4' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:1.6px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-0 atom-0 atom-1' d='M 12.7,38.8 L 39.9,47.0' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:1.6px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-0 atom-0 atom-1' d='M 10.1,47.5 L 37.3,55.7' style='fill:none;fill-rule:evenodd;stroke:#E5E5E5;stroke-width:1.6px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-1 atom-1 atom-2' d='M 38.6,51.4 L 67.7,60.2' style='fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-2 atom-2 atom-3' d='M 67.7,60.2 L 96.7,69.0' style='fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-2 atom-2 atom-3' d='M 69.0,55.8 L 98.0,64.7' style='fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-2 atom-2 atom-3' d='M 66.3,64.6 L 95.4,73.4' style='fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-3 atom-3 atom-4' d='M 96.7,69.0 L 109.4,72.9' style='fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-3 atom-3 atom-4' d='M 109.4,72.9 L 122.0,76.7' style='fill:none;fill-rule:evenodd;stroke:#CCCC00;stroke-width:2.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-4 atom-4 atom-5' d='M 127.1,83.4 L 129.3,92.7' style='fill:none;fill-rule:evenodd;stroke:#CCCC00;stroke-width:2.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path class='bond-4 atom-4 atom-5' d='M 129.3,92.7 L 131.4,102.1' style='fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1' />
+<path d='M 37.9,51.2 L 38.6,51.4 L 39.3,51.6' style='fill:none;stroke:#E5E5E5;stroke-width:1.6px;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:10;stroke-opacity:1;' />
+<path d='M 66.2,59.8 L 67.7,60.2 L 69.1,60.6' style='fill:none;stroke:#000000;stroke-width:2.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:10;stroke-opacity:1;' />
+<path d='M 95.3,68.6 L 96.7,69.0 L 97.4,69.2' style='fill:none;stroke:#000000;stroke-width:2.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:10;stroke-opacity:1;' />
+<path class='atom-0' d='M 7.9 41.6
+L 9.2 40.3
+L 7.5 40.0
+L 7.8 39.1
+L 9.3 39.9
+L 9.1 38.2
+L 10.0 38.2
+L 9.7 39.9
+L 11.3 39.1
+L 11.6 40.0
+L 9.9 40.3
+L 11.1 41.6
+L 10.3 42.1
+L 9.5 40.5
+L 8.7 42.1
+L 7.9 41.6
+' fill='#191919'/>
+<path class='atom-4' d='M 123.4 80.8
+Q 123.4 80.8, 123.8 81.0
+Q 124.2 81.2, 124.7 81.3
+Q 125.1 81.4, 125.6 81.4
+Q 126.4 81.4, 126.9 81.0
+Q 127.3 80.6, 127.3 79.9
+Q 127.3 79.4, 127.1 79.1
+Q 126.9 78.8, 126.5 78.7
+Q 126.1 78.5, 125.5 78.3
+Q 124.8 78.1, 124.3 77.9
+Q 123.8 77.7, 123.5 77.2
+Q 123.2 76.7, 123.2 76.0
+Q 123.2 74.9, 123.9 74.2
+Q 124.7 73.5, 126.1 73.5
+Q 127.1 73.5, 128.3 74.0
+L 128.0 75.0
+Q 126.9 74.5, 126.2 74.5
+Q 125.3 74.5, 124.9 74.9
+Q 124.4 75.2, 124.4 75.8
+Q 124.4 76.3, 124.7 76.6
+Q 124.9 76.8, 125.2 77.0
+Q 125.6 77.2, 126.2 77.3
+Q 126.9 77.6, 127.4 77.8
+Q 127.9 78.1, 128.2 78.6
+Q 128.5 79.1, 128.5 79.9
+Q 128.5 81.1, 127.7 81.7
+Q 126.9 82.4, 125.6 82.4
+Q 124.9 82.4, 124.3 82.2
+Q 123.7 82.0, 123.0 81.7
+L 123.4 80.8
+' fill='#CCCC00'/>
+<path class='atom-5' d='M 135.3 111.7
+L 134.4 109.2
+L 131.0 109.2
+L 130.1 111.7
+L 128.9 111.7
+L 131.9 103.1
+L 133.3 103.1
+L 136.4 111.7
+L 135.3 111.7
+M 131.3 108.2
+L 134.0 108.2
+L 132.6 104.3
+L 131.3 108.2
+' fill='#000000'/>
+<path class='atom-5' d='M 142.5 105.5
+L 142.5 111.7
+L 141.6 111.7
+L 141.4 110.9
+Q 140.6 111.8, 139.3 111.8
+Q 138.3 111.8, 137.7 111.3
+Q 137.2 110.7, 137.2 109.6
+L 137.2 105.5
+L 138.3 105.5
+L 138.3 109.5
+Q 138.3 110.3, 138.6 110.6
+Q 138.9 110.9, 139.5 110.9
+Q 140.1 110.9, 140.6 110.7
+Q 141.1 110.4, 141.4 109.9
+L 141.4 105.5
+L 142.5 105.5
+' fill='#000000'/>
+</svg>
+</div>
+                <dl>
+                    <div><dt>Feature importance</dt><dd>0.004276</dd></div>
+                    <div><dt>Representative fitness</dt><dd>0.686727</dd></div>
+                    <div><dt>Molecules containing bit</dt><dd>1,401</dd></div>
+                    <div><dt>Count in representative</dt><dd>2</dd></div>
+                    <div><dt>Mean count when present</dt><dd>1.002</dd></div>
+                    <div><dt>Representative row</dt><dd>2552</dd></div>
+                </dl>
+                <details>
+                    <summary>Show representative SMILES</summary>
+                    <p><strong>Original:</strong><br><code>[H]C1=C=C(C([H])([H])[H])C([H])=C([H])C1=C([H])C([H])=C([H])C([H])=C(F)C(=C([H])C#CC#CS[Au])C([H])([H])[H]</code></p>
+                    <p><strong>Canonical:</strong><br><code>CC1=C=CC(=CC=CC=C(F)C(C)=CC#CC#C[S][Au])C=C1</code></p>
+                </details>
+            </article>
+    </section>
+</main>
+</body>
+</html>

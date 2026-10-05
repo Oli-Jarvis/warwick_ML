@@ -1,0 +1,212 @@
+{
+  "paper": {
+    "title": "FragNet: A Graph Neural Network for Molecular Property Prediction with Four Levels of Interpretability",
+    "doi": "10.1021/jacs.5c22620",
+    "arxiv": "2410.12156"
+  },
+  "fragnet_root": "/storage/msszkb_grp/msshfg/smiles_baseline2/FragNet",
+  "input_path": "/storage/msszkb_grp/msshfg",
+  "dataset_paths": {
+    "smiles_baseline2": "/storage/msszkb_grp/msshfg/smiles_baseline2",
+    "ggs_2": "/storage/msszkb_grp/msshfg/ggs_2"
+  },
+  "input_files": [
+    "/storage/msszkb_grp/msshfg/smiles_baseline2/run_0_seed_0/full_history.csv",
+    "/storage/msszkb_grp/msshfg/smiles_baseline2/run_0_seed_1/full_history.csv",
+    "/storage/msszkb_grp/msshfg/smiles_baseline2/run_0_seed_2/full_history.csv",
+    "/storage/msszkb_grp/msshfg/smiles_baseline2/run_0_seed_3/full_history.csv",
+    "/storage/msszkb_grp/msshfg/smiles_baseline2/run_0_seed_4/full_history.csv",
+    "/storage/msszkb_grp/msshfg/ggs_2/run_0_seed_0/full_history.csv",
+    "/storage/msszkb_grp/msshfg/ggs_2/run_0_seed_1/full_history.csv",
+    "/storage/msszkb_grp/msshfg/ggs_2/run_0_seed_2/full_history.csv",
+    "/storage/msszkb_grp/msshfg/ggs_2/run_0_seed_3/full_history.csv",
+    "/storage/msszkb_grp/msshfg/ggs_2/run_0_seed_4/full_history.csv"
+  ],
+  "output_dir": "/storage/msszkb_grp/msshfg/fragnet_combined_log_P_upconversion_broad_optuna",
+  "target_column": "log_P_upconversion",
+  "target_transform": "none",
+  "split_method": "paper-scaffold",
+  "split_sizes_before_graph_generation": {
+    "train": 31758,
+    "val": 3970,
+    "test": 3970
+  },
+  "cleaning": {
+    "rows_read": 100000,
+    "invalid_or_missing_target": 826,
+    "missing_or_non_text_smiles": 30903,
+    "rdkit_parse_failures": 0,
+    "removed_before_log10_transform": 0,
+    "duplicates_removed": 28573,
+    "valid_molecules": 39698,
+    "target_column": "log_P_upconversion",
+    "target_transform": "none",
+    "target_min": -2.82380805790143,
+    "target_max": 31.6855417769015,
+    "target_mean": 8.083167950678837,
+    "target_sd": 5.982126259089275,
+    "input_files_by_dataset": {
+      "smiles_baseline2": 5,
+      "ggs_2": 5
+    },
+    "invalid_smiles_examples": []
+  },
+  "graph_generation": {
+    "train": {
+      "requested": 31758,
+      "generated": 31758,
+      "rejected": 0,
+      "verification": {
+        "count": 31758,
+        "target_min": -2.823807954788208,
+        "target_max": 30.366966247558594,
+        "target_mean": 8.617215507983587,
+        "nonessential_attributes_not_seen": []
+      }
+    },
+    "val": {
+      "requested": 3970,
+      "generated": 3970,
+      "rejected": 0,
+      "verification": {
+        "count": 3970,
+        "target_min": -2.3444862365722656,
+        "target_max": 28.9247989654541,
+        "target_mean": 6.100598610080168,
+        "nonessential_attributes_not_seen": []
+      }
+    },
+    "test": {
+      "requested": 3970,
+      "generated": 3970,
+      "rejected": 0,
+      "verification": {
+        "count": 3970,
+        "target_min": -1.857408046722412,
+        "target_max": 31.6855411529541,
+        "target_mean": 5.793625878112628,
+        "nonessential_attributes_not_seen": []
+      }
+    }
+  },
+  "pretrained_checkpoint": "/storage/msszkb_grp/msshfg/smiles_baseline2/FragNet/fragnet/exps/pt/unimol_exp1s4/pt.pt",
+  "hyperparameter_search_space": {
+    "learning_rate": {
+      "type": "float",
+      "low": 1e-05,
+      "high": 0.001,
+      "log": true
+    },
+    "drop_ratio": {
+      "type": "float",
+      "low": 0.0,
+      "high": 0.4,
+      "step": 0.05
+    },
+    "batch_size": [
+      16,
+      32,
+      64,
+      128
+    ]
+  },
+  "fixed_head_parameters": {
+    "h1": 128,
+    "h2": 1024,
+    "h3": 1024,
+    "h4": 512,
+    "act": "relu",
+    "fthead": "FTHead3"
+  },
+  "test_set_policy": "Held out from the broad search and not evaluated by this script. The future fine-search/final-training stage must reuse it.",
+  "configuration": {
+    "input_path": "/storage/msszkb_grp/msshfg",
+    "dataset_dirs": [
+      "smiles_baseline2",
+      "ggs_2"
+    ],
+    "fragnet_root": "/storage/msszkb_grp/msshfg/smiles_baseline2/FragNet",
+    "target_column": "log_P_upconversion",
+    "smiles_column": "smiles",
+    "output_dir": null,
+    "split_method": "paper-scaffold",
+    "train_fraction": 0.8,
+    "validation_fraction": 0.1,
+    "test_fraction": 0.1,
+    "seed": 123,
+    "deduplicate_smiles": true,
+    "remove_gold": false,
+    "target_transform": "none",
+    "chunk_size": 500,
+    "frag_type": "brics",
+    "data_type": "exp1s",
+    "epochs": 10000,
+    "early_stopping_patience": 100,
+    "batch_size": 16,
+    "learning_rate": 0.0001,
+    "n_trials": 20,
+    "tuning_epochs": 100,
+    "tuning_patience": 20,
+    "prune_trials": true,
+    "skip_hyperparameter_search": false,
+    "pretrained_checkpoint": null,
+    "no_pretraining": false,
+    "prepare_only": false,
+    "skip_graph_generation": false,
+    "overwrite_graphs": false
+  },
+  "hyperparameter_search": {
+    "method": "Seeded Optuna TPESampler; MedianPruner when enabled",
+    "stage": "broad optimisation",
+    "selection_data": "validation split only",
+    "objective": "minimise validation MSE",
+    "requested_total_trials": 20,
+    "finished_trials": 20,
+    "best_trial_number": 11,
+    "best_validation_mse": 4.335983753204346,
+    "best_validation_rmse": 2.082302512413685,
+    "best_params": {
+      "batch_size": 128,
+      "drop_ratio": 0.25,
+      "learning_rate": 0.0007905475075930115
+    },
+    "search_space": {
+      "learning_rate": {
+        "type": "float",
+        "low": 1e-05,
+        "high": 0.001,
+        "log": true
+      },
+      "drop_ratio": {
+        "type": "float",
+        "low": 0.0,
+        "high": 0.4,
+        "step": 0.05
+      },
+      "batch_size": [
+        16,
+        32,
+        64,
+        128
+      ]
+    },
+    "fixed_during_search": {
+      "backbone_layers": 4,
+      "attention_heads": 4,
+      "embedding_dimension": 128,
+      "regression_head": {
+        "h1": 128,
+        "h2": 1024,
+        "h3": 1024,
+        "h4": 512,
+        "act": "relu",
+        "fthead": "FTHead3"
+      },
+      "loss": "MSE"
+    },
+    "test_set_evaluated": false,
+    "study_database": "/storage/msszkb_grp/msshfg/fragnet_combined_log_P_upconversion_broad_optuna/broad_optuna/fragnet_broad_optuna.db",
+    "trials_csv": "/storage/msszkb_grp/msshfg/fragnet_combined_log_P_upconversion_broad_optuna/broad_optuna/broad_optuna_trials.csv"
+  },
+  "broad_optimised_config_path": "/storage/msszkb_grp/msshfg/fragnet_combined_log_P_upconversion_broad_optuna/fragnet_broad_optimised.yaml"
+}
