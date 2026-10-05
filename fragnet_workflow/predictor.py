@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 import yaml
 
-ROOT = Path('/storage/msszkb_grp/msshfg')
+from settings import ROOT
 
 class Predictor:
     def __init__(self, run_dir=ROOT/'fragnet_combined_selected_stereo',
@@ -22,7 +22,7 @@ class Predictor:
         if not (self.fragnet_root/'fragnet').is_dir():
             raise FileNotFoundError(self.fragnet_root/'fragnet')
         sys.path.insert(0, str(self.fragnet_root))
-        import training_reference as training
+        import model_utils as training
         from fragnet.dataset.data import CreateData, collate_fn
         self.training = training
         self.collate = collate_fn

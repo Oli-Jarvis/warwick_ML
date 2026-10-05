@@ -14,7 +14,7 @@ set -euo pipefail
 source /software/easybuild/software/Miniconda3/4.12.0/etc/profile.d/conda.sh
 conda activate nmo
 
-cd /storage/msszkb_grp/msshfg/fragnet_workflow
+cd "${SLURM_SUBMIT_DIR:?Submit this job from the repository root}/fragnet_workflow"
 
 export PYTHONUNBUFFERED=1
 export OMP_NUM_THREADS="$SLURM_CPUS_PER_TASK"
@@ -24,7 +24,7 @@ echo "Started: $(date)"
 echo "Node: $(hostname)"
 echo "Job ID: $SLURM_JOB_ID"
 
-srun python -u start_fragnet_generation.py generate \
+srun python -u run.py generate \
     --calls 256 \
     --seed 123 \
     --name pilot_seed123 \

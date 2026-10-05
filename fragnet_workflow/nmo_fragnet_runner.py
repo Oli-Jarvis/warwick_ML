@@ -27,7 +27,7 @@ import threading
 import time
 import uuid
 
-ROOT = Path('/storage/msszkb_grp/msshfg')
+from settings import ROOT
 HERE = Path(__file__).resolve().parent
 
 
@@ -353,4 +353,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

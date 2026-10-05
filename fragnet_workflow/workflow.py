@@ -18,7 +18,7 @@ def read_csv(path):
 
 
 def reference_rows(inputs, out):
-    from training_reference import molecule_identity
+    from model_utils import molecule_identity
     records, errors = [], []
     paths = set()
     for value in inputs:
