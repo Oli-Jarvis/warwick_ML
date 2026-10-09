@@ -25,7 +25,7 @@ HERE = Path(__file__).resolve().parent
 
 
 def worker(args):
-
+    # Keep model output off the JSON communication channel.
     protocol = os.fdopen(os.dup(sys.stdout.fileno()), 'w', buffering=1)
     os.dup2(sys.stderr.fileno(), sys.stdout.fileno())
     from predictor import Predictor
@@ -180,7 +180,6 @@ def install_runtime(client, output):
         rewards['failure_reasons'] = np.asarray(reasons, dtype=object)
         return rewards, indices[ok[indices].astype(bool)], reasons
 
-
     module.terahertz_workflow_handler = dispatch
     original_init = module.Oracle_Handler.__init__
 
@@ -205,7 +204,7 @@ def install_runtime(client, output):
             n = len(encodings)
             ok = np.asarray(rewards.get('fragnet_prediction_ok', np.zeros(n)), dtype=bool)
             rewards['fragnet_prediction_ok'] = ok.astype(int)
-
+            # Restore missing properties after NMO zero-fills failed predictions.
             for key in ('log_P_upconversion', 'fragnet_log_P_upconversion', 'P_upconversion', 'hl_gaps'):
                 values = np.asarray(rewards.get(key, np.full(n, np.nan)), dtype=float).copy()
                 values[~ok] = np.nan
@@ -280,7 +279,7 @@ def main():
         if args.count < 1:
             parser.error('--count must be positive')
         examples = read_examples(args.input, args.count)
-
+        # Smoke-test reward only; generation uses the configured fitness.
         fitness = '1.0/(1.0+np.exp(-np.clip(log_P_upconversion/5.0,-60,60)))'
         config.read_dict({'General': {'grammar_path': '', 'encoding_type': 'Smiles'},
                           'Training': {}, 'Oracle': {'max_oracle_calls': '-1', 'n_cpus_total': '1'}})
@@ -307,7 +306,6 @@ def main():
     config_path = output/'nmo_fragnet.ini'
     with config_path.open('w') as f:
         config.write(f)
-
     importlib.import_module('NMO.oracle_handler')
     client = Client(args, output)
     try:
@@ -322,7 +320,6 @@ def main():
         if args.command == 'smoke':
             oracle = module.Oracle_Handler_Smiles(str(config_path))
             results = []
-
             for repeat in range(2):
                 scores, rewards, exceeded = oracle.get_fitness(examples, {'step': repeat})
                 results.append(dict(batch=repeat+1, requested=len(examples),

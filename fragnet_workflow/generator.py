@@ -34,8 +34,6 @@ def source_copy(path, framework, kind):
     text = replace_once(text, 'os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)',
                         'os.environ.setdefault("CUDA_VISIBLE_DEVICES", str(args.gpu))')
     if kind == 'pretrain':
-
-
         text = replace_once(text, '    grammar = GroupGrammar(grammar_path)\n', '')
         text = replace_once(text, 'for epoch in range(1, epochs):',
                             'for epoch in range(1, epochs + 1):')
@@ -204,7 +202,6 @@ def call(command, log_path, cwd, env):
 
 
 def runtime_check(args, paths):
-
     script = '''import sys, json, importlib, os
 sys.path.insert(0, sys.argv[1])
 modules = ['NMO', 'action_space', 'model', 'utils', 'dataset', 'genetic_search', 'train_utils', 'analysis']

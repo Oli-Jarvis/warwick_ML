@@ -36,7 +36,6 @@ def fit_coordinates(bonding, structural, prop, components=3, weight=1., threshol
     if len(centres) < clusters:
         raise ValueError(f'Only {len(centres)} BIRCH subclusters; lower --threshold or --clusters')
     labels = AgglomerativeClustering(n_clusters=clusters, linkage='ward').fit_predict(centres)
-
     sublabels, _ = pairwise_distances_argmin_min(matrix, centres)
     bundle.update(mean=mean, scales=scales, centres=centres, subcluster_labels=labels,
                   reference_matrix=matrix)
@@ -68,12 +67,11 @@ def describe(frame, out, bundle=None):
     import conformers as geometry
     frame = frame.copy().reset_index(drop=True)
     frame['chemplot_smiles'] = frame.smiles.str.strip().str.replace('[Au]', '', regex=False)
-
+    # Preserve input alignment when prediction or geometry fails.
     frame['_row'] = np.arange(len(frame))
     valid = frame.chemplot_smiles.map(lambda s: bool(s) and Chem.MolFromSmiles(s) is not None)
     errors = [dict(row=int(i), smiles=frame.loc[i,'smiles'], error='Invalid chemical-space SMILES') for i in frame.index[~valid]]
     clean = frame.loc[valid].reset_index(drop=True)
-
     clean['dataset_label'] = 'candidate' if bundle else 'reference'
     if clean.empty:
         return None, errors
@@ -198,15 +196,13 @@ def fit_existing(cache_dir, embedding_csv, out, components=3, weight=1., thresho
         original_components += 1
     if original_components < components:
         raise ValueError(f'Saved embedding has only {original_components} PCs per descriptor')
-
-
+    # Recover PCA from all rows; only clustering filters missing properties.
     target = pd.to_numeric(frame.log_P_upconversion, errors='coerce').to_numpy(float)
     finite_target = np.isfinite(target)
     usable_count = int(finite_target.sum())
     if usable_count < clusters:
         raise ValueError(f'Only {usable_count} molecules have finite log P; need at least {clusters}')
-
-
+    # Keep the original component count for randomized PCA recovery.
     transforms = {}
     for name, matrix in [('bonding',bonding), ('structural',structural)]:
         scaler = StandardScaler().fit(matrix)
@@ -216,8 +212,7 @@ def fit_existing(cache_dir, embedding_csv, out, components=3, weight=1., thresho
         stored = frame[[f'{name.capitalize()}_PC_{i}' for i in range(1,original_components+1)]].to_numpy(float)
         if not np.allclose(fit_pc[:,:components], stored[:,:components], rtol=1e-3, atol=1e-3):
             raise ValueError(f'{name} cache does not reproduce saved PCA coordinates; check cache/CSV pair')
-
-
+        # Align transform (X@V) with the saved fit_transform (U*S) coordinates.
         transformed = pca.transform(scaler.transform(matrix))
         source, target_pc = transformed[:,:components], stored[:,:components]
         source_mean, target_mean = source.mean(axis=0), target_pc.mean(axis=0)
@@ -273,7 +268,6 @@ def fit_existing(cache_dir, embedding_csv, out, components=3, weight=1., thresho
     if 'atomic_numbers' in all_frame:
         for entry in all_frame.atomic_numbers.dropna():
             species.update(Chem.GetPeriodicTable().GetElementSymbol(int(i)) for i in json.loads(entry) if int(i)!=79)
-
     descriptor_list = [name for name,_ in __import__('rdkit.Chem.Descriptors',fromlist=['_descList'])._descList]
     if not set(names).issubset(descriptor_list): raise ValueError('RDKit descriptor names differ from legacy cache')
     with np.errstate(all='ignore'):
@@ -287,8 +281,7 @@ def fit_existing(cache_dir, embedding_csv, out, components=3, weight=1., thresho
                   medians=medians, species=sorted(species), assignment=assignment,
                   versions=dict(rdkit=rdBase.rdkitVersion, sklearn=sklearn.__version__,
                                 dscribe=importlib.metadata.version('dscribe')))
-
-
+    # Candidate imputation indexes all descriptors, including discarded ones.
     full_medians = np.zeros(len(descriptor_list)); full_medians[mask] = medians
     bundle['medians']=full_medians
     bundle['reference']=coordinate_table(frame,coords,components,labels)

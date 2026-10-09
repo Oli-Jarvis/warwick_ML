@@ -90,7 +90,6 @@ def one_graph(row,creator,seed):
     graph=creator.create_data_point([row.smiles,[float(row.y)],m,m.GetConformer(), 'brics'])
     validate_graph(graph,row.smiles,row.y)
 
-
     f=creator.feature_creator
     atoms,edges,bonds=f.get_atom_and_bond_features_atom_graph_one_hot(m,True)
     if not np.array_equal(graph.x_atoms.cpu().numpy(),np.asarray(atoms,dtype=np.float32)):
