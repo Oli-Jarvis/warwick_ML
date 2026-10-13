@@ -25,6 +25,7 @@ if [[ ! -f "$FRAGNET_SOURCE/fragnet/dataset/data.py" ]]; then
     exit 1
 fi
 for required in "$ROOT/generate_molecules.py" "$ROOT/map_chemical_space.py" \
+                "$ROOT/initial_predictor_training/run_fragnet.py" \
                 "$MODEL/experiment/ft.pt" "$MODEL/graph_data/train.pkl" \
                 "$MODEL/experiment/train_predictions.csv" "$MODEL/fragnet_selected.yaml" \
                 "$REFERENCE/reference.pkl" "$REFERENCE/reference.html" \
