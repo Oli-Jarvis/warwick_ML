@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Map scored molecules onto the fixed dim4/analyse4 reference without refitting."""
+
 import argparse
 import csv
 import hashlib
@@ -16,55 +17,62 @@ def load_reference(directory):
     import numpy as np
     from rdkit import rdBase
     import sklearn
-    with (directory/'reference.pkl').open('rb') as handle:
+
+    with (directory / "reference.pkl").open("rb") as handle:
         bundle = pickle.load(handle)
-    if bundle.get('format') != 'dim4_analyse4_v1':
-        raise ValueError('Use the reference exported by the revised dim4.py and analyse4.py')
-    versions = dict(rdkit=rdBase.rdkitVersion, sklearn=sklearn.__version__,
-                    dscribe=importlib.metadata.version('dscribe'))
-    if versions != bundle['versions']:
+    if bundle.get("format") != "dim4_analyse4_v1":
+        raise ValueError("Use the reference exported by the revised dim4.py and analyse4.py")
+    versions = dict(
+        rdkit=rdBase.rdkitVersion, sklearn=sklearn.__version__, dscribe=importlib.metadata.version("dscribe")
+    )
+    if versions != bundle["versions"]:
         raise RuntimeError(f'Use the reference environment: expected {bundle["versions"]}, found {versions}')
-    expected = dict(soap_r_cut=5.0, soap_n_max=4, soap_l_max=3, soap_average='inner')
-    metadata = bundle['pca_provenance']['descriptor_metadata']
+    expected = dict(soap_r_cut=5.0, soap_n_max=4, soap_l_max=3, soap_average="inner")
+    metadata = bundle["pca_provenance"]["descriptor_metadata"]
     for key, value in expected.items():
         if metadata.get(key) != value:
-            raise ValueError(f'Unsupported reference descriptor setting: {key}')
-    if bundle['property'] != 'log_P_upconversion' or bundle['assignment'] != 'nearest_birch_subcluster':
-        raise ValueError('Unexpected reference property or cluster assignment rule')
-    assigned = bundle['subcluster_labels'][bundle['birch'].predict(bundle['reference_matrix'])]
-    if not np.array_equal(assigned, bundle['reference'].cluster.to_numpy()):
-        raise ValueError('Saved model does not reproduce the reference cluster assignments')
+            raise ValueError(f"Unsupported reference descriptor setting: {key}")
+    if bundle["property"] != "log_P_upconversion" or bundle["assignment"] != "nearest_birch_subcluster":
+        raise ValueError("Unexpected reference property or cluster assignment rule")
+    assigned = bundle["subcluster_labels"][bundle["birch"].predict(bundle["reference_matrix"])]
+    if not np.array_equal(assigned, bundle["reference"].cluster.to_numpy()):
+        raise ValueError("Saved model does not reproduce the reference cluster assignments")
     # Randomized PCA fit_transform and transform can differ; retain that provenance.
-    discrepancy = bundle['pca_provenance']['transform_max_abs_difference']
-    for name, offset in [('bonding', 0), ('structural', bundle['components'])]:
-        error = np.asarray(discrepancy[name])[:bundle['components']]
-        if (error / np.asarray(bundle['scales'])[offset:offset+len(error)] > 0.01).any():
-            warnings.warn(f'{name} PCA transform differs from saved reference scores by over 1% of the block scale')
+    discrepancy = bundle["pca_provenance"]["transform_max_abs_difference"]
+    for name, offset in [("bonding", 0), ("structural", bundle["components"])]:
+        error = np.asarray(discrepancy[name])[: bundle["components"]]
+        if (error / np.asarray(bundle["scales"])[offset : offset + len(error)] > 0.01).any():
+            warnings.warn(
+                f"{name} PCA transform differs from saved reference scores by over 1% of the block scale"
+            )
     return bundle
 
 
 def read_candidates(path, property_column, keep_duplicates=False):
     import numpy as np
     import pandas as pd
-    with path.open(encoding='utf-8-sig') as handle:
+
+    with path.open(encoding="utf-8-sig") as handle:
         header = handle.readline()
-    separator = csv.Sniffer().sniff(header, delimiters=',;\t').delimiter
-    frame = pd.read_csv(path, sep=separator, encoding='utf-8-sig', low_memory=False)
+    separator = csv.Sniffer().sniff(header, delimiters=",;\t").delimiter
+    frame = pd.read_csv(path, sep=separator, encoding="utf-8-sig", low_memory=False)
     frame.columns = frame.columns.str.strip()
-    if not {'smiles', property_column}.issubset(frame):
-        raise ValueError(f'Input needs smiles and {property_column}')
-    frame['_row'] = np.arange(len(frame))
-    frame['log_P_upconversion'] = pd.to_numeric(frame[property_column], errors='coerce')
+    if not {"smiles", property_column}.issubset(frame):
+        raise ValueError(f"Input needs smiles and {property_column}")
+    frame["_row"] = np.arange(len(frame))
+    frame["log_P_upconversion"] = pd.to_numeric(frame[property_column], errors="coerce")
     good = np.isfinite(frame.log_P_upconversion)
-    if 'prediction_ok' in frame:
-        good &= frame.prediction_ok.astype(str).str.lower().isin(['true', '1', '1.0'])
-    errors = [dict(row=int(row['_row']), smiles=row['smiles'], error='Failed prediction or non-finite property')
-              for _, row in frame.loc[~good].iterrows()]
+    if "prediction_ok" in frame:
+        good &= frame.prediction_ok.astype(str).str.lower().isin(["true", "1", "1.0"])
+    errors = [
+        dict(row=int(row["_row"]), smiles=row["smiles"], error="Failed prediction or non-finite property")
+        for _, row in frame.loc[~good].iterrows()
+    ]
     accepted = frame.loc[good].copy()
     duplicates = 0
     if not keep_duplicates:
-        duplicates = int(accepted.duplicated('smiles').sum())
-        accepted = accepted.drop_duplicates('smiles', keep='first')
+        duplicates = int(accepted.duplicated("smiles").sum())
+        accepted = accepted.drop_duplicates("smiles", keep="first")
     return accepted.reset_index(drop=True), errors, len(frame), duplicates
 
 
@@ -75,34 +83,37 @@ def describe(frame, output, bundle):
     from rdkit.ML.Descriptors import MoleculeDescriptors
     from ase import Atoms
     from dscribe.descriptors import SOAP
+
     molecules, systems, selected, errors = [], [], [], []
-    with Chem.SDWriter(str(output/'generated_conformers.sdf')) as writer:
+    with Chem.SDWriter(str(output / "generated_conformers.sdf")) as writer:
         for index, row in frame.iterrows():
             try:
                 if not isinstance(row.smiles, str) or not row.smiles.strip():
-                    raise ValueError('Missing/non-text SMILES')
+                    raise ValueError("Missing/non-text SMILES")
                 # Match dim4: remove literal [Au], then ETKDGv3 and MMFF/UFF.
-                smiles = row.smiles.strip().replace('[Au]', '')
+                smiles = row.smiles.strip().replace("[Au]", "")
                 mol = Chem.MolFromSmiles(smiles)
                 if mol is None or not mol.GetNumAtoms():
-                    raise ValueError('Invalid chemical-space SMILES')
+                    raise ValueError("Invalid chemical-space SMILES")
                 mol = Chem.AddHs(mol)
                 symbols = [atom.GetSymbol() for atom in mol.GetAtoms()]
-                if not set(symbols).issubset(bundle['species']):
-                    raise ValueError('Element outside reference SOAP species')
+                if not set(symbols).issubset(bundle["species"]):
+                    raise ValueError("Element outside reference SOAP species")
                 params = AllChem.ETKDGv3()
-                params.randomSeed = int(bundle['random_state'])
+                params.randomSeed = int(bundle["random_state"])
                 if AllChem.EmbedMolecule(mol, params) != 0:
-                    raise ValueError('Conformer generation failed')
+                    raise ValueError("Conformer generation failed")
                 if AllChem.MMFFHasAllMoleculeParams(mol):
                     AllChem.MMFFOptimizeMolecule(mol)
                 else:
                     AllChem.UFFOptimizeMolecule(mol)
-                system = Atoms(symbols=symbols, positions=np.asarray(mol.GetConformer().GetPositions(), dtype=float))
+                system = Atoms(
+                    symbols=symbols, positions=np.asarray(mol.GetConformer().GetPositions(), dtype=float)
+                )
             except (ValueError, RuntimeError, TypeError) as exc:
-                errors.append(dict(row=int(row['_row']), smiles=row.smiles, error=str(exc)))
+                errors.append(dict(row=int(row["_row"]), smiles=row.smiles, error=str(exc)))
                 continue
-            mol.SetIntProp('source_row', int(row['_row']))
+            mol.SetIntProp("source_row", int(row["_row"]))
             writer.write(mol)
             molecules.append(mol)
             systems.append(system)
@@ -110,104 +121,127 @@ def describe(frame, output, bundle):
     if not selected:
         return None, errors
     clean = frame.loc[selected].copy().reset_index(drop=True)
-    clean['chemplot_smiles'] = clean.smiles.str.strip().str.replace('[Au]', '', regex=False)
-    soap = SOAP(species=bundle['species'], periodic=False, r_cut=5.0,
-                n_max=4, l_max=3, average='inner', sparse=False)
+    clean["chemplot_smiles"] = clean.smiles.str.strip().str.replace("[Au]", "", regex=False)
+    soap = SOAP(
+        species=bundle["species"], periodic=False, r_cut=5.0, n_max=4, l_max=3, average="inner", sparse=False
+    )
     structural = np.asarray(soap.create(systems), dtype=np.float32)
-    calculator = MoleculeDescriptors.MolecularDescriptorCalculator(bundle['descriptor_names'])
+    calculator = MoleculeDescriptors.MolecularDescriptorCalculator(bundle["descriptor_names"])
     bonding = np.asarray([calculator.CalcDescriptors(Chem.RemoveHs(mol)) for mol in molecules], dtype=float)
     bonding[~np.isfinite(bonding)] = np.nan
     rows, columns = np.where(np.isnan(bonding))
-    bonding[rows, columns] = np.asarray(bundle['medians'])[columns]
-    bonding = bonding[:, np.asarray(bundle['descriptor_mask'], dtype=bool)]
+    bonding[rows, columns] = np.asarray(bundle["medians"])[columns]
+    bonding = bonding[:, np.asarray(bundle["descriptor_mask"], dtype=bool)]
     if not np.isfinite(structural).all() or not np.isfinite(bonding).all():
-        raise ValueError('Non-finite candidate descriptors')
+        raise ValueError("Non-finite candidate descriptors")
     return (clean, bonding, structural), errors
 
 
 def transform_coordinates(bundle, bonding, structural, prop):
     import numpy as np
     from sklearn.metrics import pairwise_distances_argmin_min
+
     pcs = []
-    for name, values in [('bonding', bonding), ('structural', structural)]:
+    for name, values in [("bonding", bonding), ("structural", structural)]:
         fit = bundle[name]
-        pcs.append(fit['pca'].transform(fit['scaler'].transform(values))[:, :bundle['components']])
+        pcs.append(fit["pca"].transform(fit["scaler"].transform(values))[:, : bundle["components"]])
     coords = np.column_stack([*pcs, prop])
-    matrix = (coords-bundle['mean'])/bundle['scales']
-    subclusters = bundle['birch'].predict(matrix)
-    distance = np.linalg.norm(matrix-bundle['centres'][subclusters], axis=1)
-    nearest, ref_distance = pairwise_distances_argmin_min(matrix, bundle['reference_matrix'])
-    return coords, bundle['subcluster_labels'][subclusters], distance, nearest, ref_distance
+    matrix = (coords - bundle["mean"]) / bundle["scales"]
+    subclusters = bundle["birch"].predict(matrix)
+    distance = np.linalg.norm(matrix - bundle["centres"][subclusters], axis=1)
+    nearest, ref_distance = pairwise_distances_argmin_min(matrix, bundle["reference_matrix"])
+    return coords, bundle["subcluster_labels"][subclusters], distance, nearest, ref_distance
 
 
 def save_plot(reference_dir, candidates, output):
     import plotly.graph_objects as go
+
     # Reuse the original analyse4 figure, including cluster colours and axes.
-    text = (reference_dir/'reference.html').read_text()
-    start = text.rfind('Plotly.newPlot(')
+    text = (reference_dir / "reference.html").read_text()
+    start = text.rfind("Plotly.newPlot(")
     if start < 0:
-        raise ValueError('Reference HTML has no Plotly figure')
+        raise ValueError("Reference HTML has no Plotly figure")
     decoder = json.JSONDecoder()
-    start = text.index('[', start)
+    start = text.index("[", start)
     data, length = decoder.raw_decode(text[start:])
-    start = text.index('{', start+length)
+    start = text.index("{", start + length)
     layout, _ = decoder.raw_decode(text[start:])
     figure = go.Figure(data=data, layout=layout)
-    figure.add_trace(go.Scatter3d(
-        x=candidates.Bonding_PC_1, y=candidates.Structural_PC_1,
-        z=candidates.log_P_upconversion, mode='markers', name='FragNet candidates',
-        customdata=candidates[['smiles', 'cluster']].to_numpy(),
-        hovertemplate='SMILES=%{customdata[0]}<br>Cluster=%{customdata[1]}<br>Predicted log P=%{z}<extra></extra>',
-        marker=dict(size=7, color='red', symbol='diamond')))
+    figure.add_trace(
+        go.Scatter3d(
+            x=candidates.Bonding_PC_1,
+            y=candidates.Structural_PC_1,
+            z=candidates.log_P_upconversion,
+            mode="markers",
+            name="FragNet candidates",
+            customdata=candidates[["smiles", "cluster"]].to_numpy(),
+            hovertemplate="SMILES=%{customdata[0]}<br>Cluster=%{customdata[1]}<br>Predicted log P=%{z}<extra></extra>",
+            marker=dict(size=7, color="red", symbol="diamond"),
+        )
+    )
     figure.write_html(str(output), include_plotlyjs=True)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--input', type=Path, required=True)
-    parser.add_argument('--reference', type=Path, default=ROOT/'chemical_space_reference')
-    parser.add_argument('--output', type=Path, required=True)
-    parser.add_argument('--property-column', default='fragnet_log_P_upconversion')
-    parser.add_argument('--keep-duplicates', action='store_true')
+    parser.add_argument("--input", type=Path, required=True)
+    parser.add_argument("--reference", type=Path, default=ROOT / "chemical_space_reference")
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--property-column", default="fragnet_log_P_upconversion")
+    parser.add_argument("--keep-duplicates", action="store_true")
     args = parser.parse_args()
     if args.output.exists() and any(args.output.iterdir()):
-        raise FileExistsError(f'Choose a new output directory: {args.output}')
+        raise FileExistsError(f"Choose a new output directory: {args.output}")
     import pandas as pd
+
     bundle = load_reference(args.reference)
     frame, errors, total, duplicates = read_candidates(args.input, args.property_column, args.keep_duplicates)
     args.output.mkdir(parents=True, exist_ok=True)
     described, descriptor_errors = describe(frame, args.output, bundle)
     errors.extend(descriptor_errors)
-    pd.DataFrame(errors, columns=['row', 'smiles', 'error']).to_csv(args.output/'projection_rejected.csv', index=False)
+    pd.DataFrame(errors, columns=["row", "smiles", "error"]).to_csv(
+        args.output / "projection_rejected.csv", index=False
+    )
     if described is None:
-        raise ValueError('No candidates could be projected; see projection_rejected.csv')
+        raise ValueError("No candidates could be projected; see projection_rejected.csv")
     clean, bonding, structural = described
     coords, labels, distances, nearest, ref_distances = transform_coordinates(
-        bundle, bonding, structural, clean.log_P_upconversion.to_numpy(float))
-    result = clean.rename(columns={'_row': 'source_row'}).copy()
-    count = bundle['components']
+        bundle, bonding, structural, clean.log_P_upconversion.to_numpy(float)
+    )
+    result = clean.rename(columns={"_row": "source_row"}).copy()
+    count = bundle["components"]
     for j in range(count):
-        result[f'Bonding_PC_{j+1}'] = coords[:, j]
-        result[f'Structural_PC_{j+1}'] = coords[:, count+j]
-    result['PCA_1'] = coords[:, 0]
-    result['PCA_2'] = coords[:, count]
-    result['cluster'] = labels
-    result['distance_to_birch_subcluster'] = distances
-    result['nearest_reference_distance'] = ref_distances
-    result['nearest_reference_smiles'] = bundle['reference'].iloc[nearest].smiles.to_numpy()
-    result['nearest_reference_log_P_upconversion'] = bundle['reference'].iloc[nearest].log_P_upconversion.to_numpy()
-    result.to_csv(args.output/'candidates_in_space.csv', index=False)
-    save_plot(args.reference, result, args.output/'candidates_in_space.html')
-    summary = dict(input=str(args.input.resolve()), input_rows=total, duplicate_rows_omitted=duplicates,
-                   rejected_rows=len(errors), projected_molecules=len(result),
-                   reference=str(args.reference.resolve()), original_clusters_preserved=True,
-                   reference_sha256=hashlib.sha256((args.reference/'reference.pkl').read_bytes()).hexdigest(),
-                   components_per_descriptor=count, property_weight=bundle['weight'],
-                   candidate_assignment=bundle['assignment'], candidate_descriptors_recalculated=True,
-                   transform_max_abs_difference=bundle['pca_provenance']['transform_max_abs_difference'])
-    (args.output/'projection_summary.json').write_text(json.dumps(summary, indent=2)+'\n')
+        result[f"Bonding_PC_{j+1}"] = coords[:, j]
+        result[f"Structural_PC_{j+1}"] = coords[:, count + j]
+    result["PCA_1"] = coords[:, 0]
+    result["PCA_2"] = coords[:, count]
+    result["cluster"] = labels
+    result["distance_to_birch_subcluster"] = distances
+    result["nearest_reference_distance"] = ref_distances
+    result["nearest_reference_smiles"] = bundle["reference"].iloc[nearest].smiles.to_numpy()
+    result["nearest_reference_log_P_upconversion"] = (
+        bundle["reference"].iloc[nearest].log_P_upconversion.to_numpy()
+    )
+    result.to_csv(args.output / "candidates_in_space.csv", index=False)
+    save_plot(args.reference, result, args.output / "candidates_in_space.html")
+    summary = dict(
+        input=str(args.input.resolve()),
+        input_rows=total,
+        duplicate_rows_omitted=duplicates,
+        rejected_rows=len(errors),
+        projected_molecules=len(result),
+        reference=str(args.reference.resolve()),
+        original_clusters_preserved=True,
+        reference_sha256=hashlib.sha256((args.reference / "reference.pkl").read_bytes()).hexdigest(),
+        components_per_descriptor=count,
+        property_weight=bundle["weight"],
+        candidate_assignment=bundle["assignment"],
+        candidate_descriptors_recalculated=True,
+        transform_max_abs_difference=bundle["pca_provenance"]["transform_max_abs_difference"],
+    )
+    (args.output / "projection_summary.json").write_text(json.dumps(summary, indent=2) + "\n")
     print(json.dumps(summary, indent=2))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

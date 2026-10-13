@@ -14,19 +14,17 @@ set -eo pipefail
 source /software/easybuild/software/Miniconda3/4.12.0/etc/profile.d/conda.sh
 
 ROOT=/storage/msszkb_grp/msshfg
-SCRIPTS="$ROOT"
 MODEL="$ROOT/fragnet_config_details"
 REFERENCE="$ROOT/chemical_space_reference"
 WORK="$ROOT/nmo_fragnet_generation"
 FRAGNET_SOURCE="$ROOT/fragnet_source_code"
 RUN_NAME="pilot_seed123_${SLURM_JOB_ID}"
 
-# If relocated, set FRAGNET_SOURCE to the directory containing the fragnet package.
 if [[ ! -f "$FRAGNET_SOURCE/fragnet/dataset/data.py" ]]; then
     printf 'FragNet source not found at %s; set FRAGNET_SOURCE in this script.\n' "$FRAGNET_SOURCE" >&2
     exit 1
 fi
-for required in "$SCRIPTS/generate_molecules.py" "$SCRIPTS/map_chemical_space.py" \
+for required in "$ROOT/generate_molecules.py" "$ROOT/map_chemical_space.py" \
                 "$MODEL/experiment/ft.pt" "$MODEL/graph_data/train.pkl" \
                 "$MODEL/experiment/train_predictions.csv" "$MODEL/fragnet_selected.yaml" \
                 "$REFERENCE/reference.pkl" "$REFERENCE/reference.html" \
@@ -37,7 +35,7 @@ for required in "$SCRIPTS/generate_molecules.py" "$SCRIPTS/map_chemical_space.py
     fi
 done
 
-cd "$SCRIPTS"
+cd "$ROOT"
 export PYTHONUNBUFFERED=1
 export OMP_NUM_THREADS="$SLURM_CPUS_PER_TASK"
 export OPENBLAS_NUM_THREADS="$SLURM_CPUS_PER_TASK"
@@ -45,12 +43,14 @@ export MKL_NUM_THREADS="$SLURM_CPUS_PER_TASK"
 export MPLBACKEND=Agg
 export CUDA_VISIBLE_DEVICES=""
 
+# 1. Check predictions against the saved training results.
 conda activate fragnet
 FRAGNET_PYTHON=$(python -c 'import sys; print(sys.executable)')
 python -u generate_molecules.py verify \
     --run-dir "$MODEL" --fragnet-root "$FRAGNET_SOURCE" \
     --threads "$SLURM_CPUS_PER_TASK" --count 5
 
+# 2. Generate molecules using FragNet fitness.
 conda activate nmo
 python -u generate_molecules.py \
     --run-dir "$MODEL" --fragnet-root "$FRAGNET_SOURCE" \
@@ -58,6 +58,7 @@ python -u generate_molecules.py \
     --repo "$ROOT/NMO_source_code" --work "$WORK" --name "$RUN_NAME" \
     --calls 256 --seed 123 --threads "$SLURM_CPUS_PER_TASK" --cpu
 
+# 3. Map candidates onto the saved chemical space.
 conda activate fragnet
 python -u map_chemical_space.py \
     --input "$WORK/$RUN_NAME/unique_fragnet_candidates.csv" \
