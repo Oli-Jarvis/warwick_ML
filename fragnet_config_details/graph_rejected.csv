@@ -1,0 +1,3 @@
+split,smiles,y,reason
+train,C=CC(=CC(=C)/C(N)=N/C(N)=N/O)N=C1C(=C2C=CC=CCC(C=CS[Au])=C2)C=CC1Br,6.79408377513756,ValueError: 3D embedding changed specified double-bond stereo
+test,C=CC1=NC=C2C=C(C=CS[Au])CCC1C(C)(C)C(C)CC2=O,4.94959324236937,ValueError: 3D embedding failed; no silent 2D fallback

@@ -1,0 +1,277 @@
+definitions:
+  name: NMO Benchmark Schema
+  description: >
+    Schema for the Nanoscale Molecular Optimization (NMO) benchmark dataset.
+    Each entry represents a relevant molecule found by a molecular optimization
+    algorithm for one of three tasks: phonon thermal conductance minimization,
+    thermoelectric figure-of-merit maximization, or terahertz upconversion
+    probability maximization. Quantum transport properties are computed with
+    GFN-xTB methods and the Non-Equilibrium Green's Function (NEGF) formalism.
+
+  sections:
+
+    NMOEntry:
+      base_sections:
+        - nomad.datamodel.data.EntryData
+      quantities:
+        task:
+          type: str
+          description: >
+            Benchmark task this molecule was optimized for.
+            One of: phonon, thermoelectric, optomechanics.
+        hash:
+          type: str
+          description: >
+            MD5 identifier of this molecule as assigned during the optimization
+            run. Can be used to cross-reference with raw HDF5 output files.
+      sub_sections:
+        benchmark_context:
+          section: '#/definitions/sections/BenchmarkContext'
+        calculation_settings:
+          section: '#/definitions/sections/CalculationSettings'
+        molecular_junction:
+          section: '#/definitions/sections/MolecularJunction'
+        structure:
+          section: '#/definitions/sections/AtomicStructure'
+        phonon_transport:
+          section: '#/definitions/sections/PhononTransport'
+        electronic_transport:
+          section: '#/definitions/sections/ElectronicTransport'
+        upconversion:
+          section: '#/definitions/sections/Upconversion'
+
+    BenchmarkContext:
+      description: >
+        Identifies the molecular optimization algorithm used and its
+        hyperparameter configuration. These settings are identical across all
+        three benchmark tasks to ensure a fair comparison.
+      quantities:
+        model_name:
+          type: str
+          description: Name of the molecular optimization algorithm (e.g. GGS, REINVENT4, Graph-GA).
+        model_version:
+          type: str
+          description: Version string of the algorithm.
+        model_url:
+          type: str
+          description: URL to the algorithm repository or publication.
+        hyperparameters:
+          type: str
+          description: >
+            Hyperparameters of the optimization algorithm in YAML format.
+            These are the same for all three tasks.
+        grammar:
+          type: str
+          description: >
+            Grammar or vocabulary file content used by the optimizer to define
+            its molecular search space. For Group SELFIES (GGS) encodings this
+            is the grammar file; for SMILES-based optimizers this may be a
+            token or fragment vocabulary. Absent when no explicit
+            grammar/vocabulary is used.
+
+    CalculationSettings:
+      description: >
+        Computational methods used by the NMO oracle to evaluate each molecule.
+      quantities:
+        geometry_method:
+          type: str
+          description: >
+            Method and parametrization used for geometry optimization of the
+            molecular junction via the external xtb binary (xtb --opt extreme).
+            GFN1-xTB for phonon and thermoelectric tasks; GFN2-xTB for the
+            optomechanics task.
+        hessian_method:
+          type: str
+          description: >
+            Method used for the force-constant (Hessian) matrix required for
+            phonon transport, via the external xtb binary (xtb --hess).
+            GFN1-xTB. Present only for phonon and thermoelectric tasks.
+        electronic_structure_method:
+          type: str
+          description: >
+            Method used for the electronic structure entering the NEGF transport
+            calculation. GFN1-xTB via dxtb (differentiable xTB, in-Python).
+            Present only for phonon and thermoelectric tasks.
+        transport_method:
+          type: str
+          description: >
+            Quantum transport formalism. Non-Equilibrium Green's Function (NEGF)
+            with full surface Green's functions (WBL=False).
+            Present only for phonon and thermoelectric tasks.
+        upconversion_method:
+          type: str
+          description: >
+            Method for computing terahertz upconversion efficiency.
+            PTB parametrization via xtb --ptb --hess --raman.
+            Present only for the optomechanics task.
+        temperature:
+          type: np.float64
+          unit: K
+          description: Temperature used in transport coefficient integrals.
+        oracle_config:
+          type: str
+          description: >
+            Verbatim content of the oracle configuration file(s) used for this
+            task. Provided for full reproducibility.
+
+    MolecularJunction:
+      description: >
+        Molecular identity and scalar properties of the junction candidate.
+      quantities:
+        smiles:
+          type: str
+          description: >
+            SMILES string of the molecule as submitted to the oracle, including
+            Au-S anchor groups (e.g. [Au]SC...CS[Au]).
+        encoding:
+          type: str
+          description: >
+            Input encoding used by the optimizer, either a SMILES string or a
+            Group SELFIES (GGS) string.
+        sa_score:
+          type: np.float64
+          description: >
+            Synthetic accessibility score (RDKit SA scorer).
+            Range 1 (easy to synthesize) to 10 (hard).
+        hl_gap:
+          type: np.float64
+          unit: eV
+          description: >
+            HOMO-LUMO gap extracted from the xtb --opt extreme geometry
+            optimization output (GFN1-xTB for phonon/thermoelectric,
+            GFN2-xTB for optomechanics).
+        oracle_call:
+          type: np.int64
+          description: >
+            Sequential oracle call index at which this molecule was evaluated
+            during the optimization run (0-indexed).
+        fitness:
+          type: np.float64
+          description: >
+            Oracle-specific fitness value used to guide the optimization.
+            Higher is better for all three tasks.
+
+    AtomicStructure:
+      description: >
+        Relaxed 3D geometry of the full molecular junction including Au-S
+        anchor groups, as produced by the xtb --opt extreme geometry optimization.
+      quantities:
+        species:
+          type: str
+          shape: ['*']
+          description: Element symbols for each atom.
+        positions:
+          type: np.float64
+          shape: ['*', 3]
+          unit: angstrom
+          description: >
+            Cartesian coordinates of the relaxed junction geometry. The junction
+            axis is aligned along the z-direction.
+
+    PhononTransport:
+      description: >
+        Phonon thermal transport properties computed via NEGF with a
+        GFN1-xTB force-constant matrix. Present for phonon and thermoelectric
+        tasks.
+      quantities:
+        electrode_model:
+          type: str
+          description: >
+            Model used for the Au phonon electrode surface Green's function.
+            A Debye model is used with Debye energy E_D = 20 meV and
+            molecule-electrode coupling gamma = -7 eV/Ang^2, following
+            Markussen, J. Chem. Phys. 139, 244101 (2013)
+        kappa:
+          type: np.float64
+          unit: pW/K
+          description: >
+            Integrated phonon thermal conductance kappa_ph obtained from the
+            Landauer formula at 300 K.
+        energy:
+          type: np.float64
+          shape: ['*']
+          unit: eV
+          description: Phonon energy grid for the transmission spectrum.
+        transmission:
+          type: np.float64
+          shape: ['*']
+          description: >
+            Phonon transmission function T_ph(omega) evaluated on the energy
+            grid above.
+
+    ElectronicTransport:
+      description: >
+        Electronic transport properties computed via NEGF with GFN1-xTB
+        electronic structure and Au(111) surface Green's functions. Present
+        for the thermoelectric task only.
+      quantities:
+        electrode_geometry:
+          type: str
+          description: >
+            Geometry of the Au electrode used in the NEGF calculation.
+            Au(111) 3x4x6 slab (left and right), with the molecule coupled
+            to the top-layer Au atoms via the optimized S-Au bond.
+        electrode_method:
+          type: str
+          description: >
+            Method used to compute the electrode surface Green's function.
+            Precomputed with DFTB+ using Slater-Koster parameters for Au.
+            The surface Green's function files are provided as part of the
+            NMO benchmark electrode data (available on HuggingFace).
+        conductance:
+          type: np.float64
+          description: >
+            Zero-bias electronic conductance G in units of the quantum of
+            conductance G0 = 2e^2/h = 7.748e-5 S.
+        seebeck:
+          type: np.float64
+          unit: uV/K
+          description: Seebeck coefficient S at 300 K.
+        kappa_el:
+          type: np.float64
+          unit: pW/K
+          description: Electronic contribution to thermal conductance kappa_el at 300 K.
+        zt:
+          type: np.float64
+          description: >
+            Thermoelectric figure of merit ZT = G*S^2 / (kappa_ph + kappa_el) * T
+            evaluated at T = 300 K.
+        energy:
+          type: np.float64
+          shape: ['*']
+          unit: eV
+          description: >
+            Electronic energy grid shifted to the Fermi level
+            (E - E_F) for the transmission spectrum.
+        transmission:
+          type: np.float64
+          shape: ['*']
+          description: Electronic transmission function T_el(E) on the energy grid above.
+
+    Upconversion:
+      description: >
+        Terahertz upconversion efficiency computed with the PTB parametrization
+        via xtb --ptb --hess --raman. Present for the optomechanics task only.
+      quantities:
+        log_p_upconversion:
+          type: np.float64
+          description: >
+            log10 of the raw terahertz upconversion probability P.
+        log_p_upconversion_scaled:
+          type: np.float64
+          description: >
+            log10 upconversion probability penalized by molecular length and
+            projected surface area to favour compact molecules suitable for
+            self-assembled monolayers.
+        molecular_length:
+          type: np.float64
+          unit: angstrom
+          description: >
+            Molecular extension along the junction (z) axis, used as a proxy
+            for the coupling distance in the upconversion penalty.
+        surface_area:
+          type: np.float64
+          unit: angstrom**2
+          description: >
+            Projected molecular footprint estimated as the area of the smallest
+            enclosing circle in the xy-plane.

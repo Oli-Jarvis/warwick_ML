@@ -1,0 +1,9 @@
+.idea
+**/G_surf
+*.zip
+xtb_transport.egg-info
+*/__pychache__
+__pycache__/
+build
+data/xtb_3_4_6_top_electrodes
+data/.gitattributes

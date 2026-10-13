@@ -1,0 +1,4 @@
+fragnet_combined_selected_stereo/experiment/ft.pt filter=lfs diff=lfs merge=lfs -text
+nmo_fragnet_generation/generator_prior/prior.pt filter=lfs diff=lfs merge=lfs -text
+TheNanotechnologyMolecularOptimizationBenchmark/genetic_GFN_framework/data/experiments/translated_smiles.smi filter=lfs diff=lfs merge=lfs -text
+chemical_space_reference/reference.pkl filter=lfs diff=lfs merge=lfs -text

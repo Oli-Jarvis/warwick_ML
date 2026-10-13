@@ -1,0 +1,11 @@
+run_type = "transfer_learning"
+device = "cuda"
+json_out_config = "pretrain_log.json"
+
+[parameters]
+input_model_file = "priors/reinvent.prior"
+smiles_file = "./translated_smiles.smi"
+output_model_file = "ggs_dataset.checkpoint"
+save_every_n_epochs = 10
+batch_size = 128
+num_epochs = 50

@@ -1,0 +1,23 @@
+
+Geometry = vaspFormat {
+    <<< "POSCAR"
+}
+
+Hamiltonian = xTB {
+   Method = "GFN1-xTB"
+   KPointsAndWeights = SupercellFolding {
+      4 0 0
+      0 4 0
+      0 0 4
+      0.0 0.0 0.0
+    }
+}
+
+Options = {
+    WriteCharges = Yes
+    WriteHS = No
+    WriteRealHS = No
+}
+Analysis = {
+    WriteBandOut = Yes
+}

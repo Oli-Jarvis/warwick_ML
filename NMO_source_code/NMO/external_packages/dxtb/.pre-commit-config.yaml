@@ -1,0 +1,66 @@
+# This file is part of dxtb.
+#
+# SPDX-Identifier: Apache-2.0
+# Copyright (C) 2024 Grimme Group
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-shebang-scripts-are-executable
+      - id: check-toml
+      - id: check-yaml
+      - id: check-added-large-files
+        args: ["--maxkb=20000"]
+      - id: debug-statements
+        language_version: python3
+
+  - repo: https://github.com/asottile/setup-cfg-fmt
+    rev: v2.8.0
+    hooks:
+      - id: setup-cfg-fmt
+        args:
+          [
+            --include-version-classifiers,
+            --min-py-version,
+            "3.8",
+            --max-py-version,
+            "3.12",
+          ]
+
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v3.20.0
+    hooks:
+      - id: pyupgrade
+        args: [--py37-plus, --keep-runtime-typing]
+
+  - repo: https://github.com/pycqa/isort
+    rev: 6.0.1
+    hooks:
+      - id: isort
+        name: isort (python)
+        args: ["--profile", "black", "--line-length", "80", "--filter-files"]
+
+  - repo: https://github.com/psf/black
+    rev: 25.1.0
+    hooks:
+      - id: black
+        args: ["--line-length", "80"]
+
+  - repo: https://github.com/woodruffw/zizmor-pre-commit
+    rev: v1.11.0
+    hooks:
+      - id: zizmor

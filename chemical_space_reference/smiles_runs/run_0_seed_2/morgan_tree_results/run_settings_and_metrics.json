@@ -1,0 +1,39 @@
+{
+  "input_file": "/home/olive/plots_warwick/backup/smiles_baseline/run_0_seed_2/full_history.csv",
+  "radius": 1,
+  "nbits": 2048,
+  "fitness_threshold": 0.5,
+  "class_rule": "fitness >= 0.5 gives class 1",
+  "tree_depths_tested": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    8,
+    10,
+    12,
+    16,
+    20
+  ],
+  "selected_tree_depth": 8,
+  "test_size": 0.2,
+  "validation_size": 0.2,
+  "random_state": 1,
+  "remove_gold": false,
+  "deduplicate_smiles": false,
+  "number_of_valid_molecules": 5047,
+  "class_counts": {
+    "0": 1317,
+    "1": 3730
+  },
+  "test_metrics": {
+    "accuracy": 0.9415841584158415,
+    "balanced_accuracy": 0.9372055000406206,
+    "precision": 0.9737931034482759,
+    "recall": 0.9463806970509383,
+    "f1": 0.9598912304554724,
+    "mcc": 0.8536808833339466,
+    "roc_auc": 0.959986087415712
+  }
+}

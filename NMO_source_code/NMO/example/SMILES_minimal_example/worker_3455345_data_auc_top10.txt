@@ -1,0 +1,4 @@
+# AUC top-10: 0.257920 | Global Mean: 0.687788 +/- 0.000000 | Max OC: 1
+# oracle_call	mean_fitness	std_fitness	best_fitness	mean_SA
+0.000000	0.687788	0.000000	0.687788	4.942099
+1.000000	0.343894	0.343894	0.687788	2.471049

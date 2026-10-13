@@ -1,0 +1,47 @@
+{
+  "fingerprint": {
+    "type": "Morgan",
+    "radius": 2,
+    "n_bits": 2048,
+    "include_chirality": true
+  },
+  "training_reference_count": 31766,
+  "top_k": 5,
+  "training_self_matches_excluded": true,
+  "splits": {
+    "test": {
+      "top1_similarity": {
+        "split": "test",
+        "similarity_measure": "top1_similarity",
+        "n": 3960,
+        "mae": 1.261840067774256,
+        "rmse": 1.9253069485611518,
+        "similarity_mean": 0.5245455193418452,
+        "similarity_median": 0.5092624356775299,
+        "similarity_min": 0.22784810126582278,
+        "similarity_max": 1.0,
+        "error_similarity_pearson_r": 0.2586897802016692,
+        "error_similarity_pearson_p": 1.4387117515696714e-61,
+        "error_similarity_spearman_rho": 0.2396123215292694,
+        "error_similarity_spearman_p": 7.999332734000055e-53,
+        "exact_training_molecule_matches": 0
+      },
+      "top5_mean_similarity": {
+        "split": "test",
+        "similarity_measure": "top5_mean_similarity",
+        "n": 3960,
+        "mae": 1.261840067774256,
+        "rmse": 1.9253069485611518,
+        "similarity_mean": 0.48092135346830955,
+        "similarity_median": 0.46446799086954027,
+        "similarity_min": 0.22119224897097137,
+        "similarity_max": 0.9215924426450742,
+        "error_similarity_pearson_r": 0.26237013728072456,
+        "error_similarity_pearson_p": 2.41916762471809e-63,
+        "error_similarity_spearman_rho": 0.2543526694969131,
+        "error_similarity_spearman_p": 1.630808872531826e-59,
+        "exact_training_molecule_matches": 0
+      }
+    }
+  }
+}

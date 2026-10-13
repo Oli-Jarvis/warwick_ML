@@ -1,0 +1,8 @@
+feature,group,centering_mean,group_reference,divisor,additional_weight,scaled_standard_deviation
+Bonding_PC_1,bonding,2.1315865747300128e-16,Bonding_PC_1,6.581273570687972,1.0,1.0
+Bonding_PC_2,bonding,7.993449655237548e-17,Bonding_PC_1,6.581273570687972,1.0,0.5799833871718816
+Bonding_PC_3,bonding,2.564565097722047e-16,Bonding_PC_1,6.581273570687972,1.0,0.5334167192212027
+Structural_PC_1,structural,5.395371983225919e-06,Structural_PC_1,15.202900078604292,1.0,1.0
+Structural_PC_2,structural,-5.9115980432527005e-06,Structural_PC_1,15.202900078604292,1.0,0.8075553035787895
+Structural_PC_3,structural,-2.9160405409326305e-06,Structural_PC_1,15.202900078604292,1.0,0.7208535694932949
+log_P_upconversion,property,12.774680131496797,log_P_upconversion,9.291398992220511,1.0,0.9999999999999999

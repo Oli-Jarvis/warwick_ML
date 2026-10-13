@@ -1,0 +1,3 @@
+oracle_call;hash;SA;encoding;failure_reason;fitness;hl_gap;k_ph;smiles
+0;43126491d35c0b89a88970f1a8210d51;4.942098599324524;C#CCCC#CCC#C;;0.6877877116203308;1.938103821188;0.6877877116203308;[H]C([H])(C#CS[Au])C#CC([H])([H])C([H])([H])C#CS[Au]
+1;66dfe3232203c92fcb33c9171ee17814;0.0;C1=CC=CC=C1;Gold is connected to multiple atoms;0.0;0.0;0.0;

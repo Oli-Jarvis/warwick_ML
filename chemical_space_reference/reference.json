@@ -1,0 +1,47 @@
+{
+  "format": "dim4_analyse4_v1",
+  "n_reference": 68268,
+  "dataset_counts": {
+    "smiles": 36754,
+    "ggs": 31514
+  },
+  "components_per_descriptor": 3,
+  "property": "log_P_upconversion",
+  "property_weight": 1.0,
+  "birch_threshold": 0.5,
+  "birch_subclusters": 1315,
+  "final_clusters": 20,
+  "original_clusters_preserved": true,
+  "candidate_assignment": "nearest_birch_subcluster",
+  "source_embedding": "/storage/msszkb_grp/msshfg/dim_plots_smiles_ggs/full_fixed_pca_embedding.csv",
+  "embedding_sha256": "58676ba2e5005bd4531a0009c042f83e69f4fa760168a6789feecb8d93d330d6",
+  "source_analysis": "/storage/msszkb_grp/msshfg/analysis_plots_smiles_ggs/pca/log_P_upconversion_all",
+  "analyse4_sha256": "a35bd2191f7edfddceefc8d4ec9b6c934e24b7ee65fa0a8daa9544d83a3c65b6",
+  "transform_max_abs_difference": {
+    "bonding": [
+      7.890843534141823e-10,
+      1.497019633323049e-05,
+      4.3062241129376844e-05,
+      0.0001636955719126476,
+      0.00013281819739216494,
+      0.0016567572319443613,
+      0.005417835504865298,
+      0.04229130457577668,
+      0.16682049542690125,
+      0.3055470282153505
+    ],
+    "structural": [
+      0.0007390975952148438,
+      0.00511932373046875,
+      0.018178939819335938,
+      0.08338737487792969,
+      0.0472564697265625,
+      0.3772468566894531,
+      0.33519256114959717,
+      0.9048137664794922,
+      2.9056129455566406,
+      3.6565513610839844
+    ]
+  },
+  "reference_assignment_verified": true
+}

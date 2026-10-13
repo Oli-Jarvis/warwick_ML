@@ -1,0 +1,943 @@
+# This file is part of dxtb.
+#
+# SPDX-Identifier: Apache-2.0
+# Copyright (C) 2024 Grimme Group
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""
+Calculators: Base Class
+=======================
+
+A base class for all calculators. All calculators should inherit from this
+class and implement the :meth:`calculate` method and the corresponding methods
+to calculate the properties specified within this :meth:`calculate`, as well as
+the :attr:`implemented_properties` attribute.
+"""
+from __future__ import annotations
+
+from abc import abstractmethod
+
+import torch
+from tad_mctc.exceptions import DeviceError, DtypeError
+
+from dxtb import IndexHelper, OutputHandler
+from dxtb import integrals as ints
+from dxtb import labels
+from dxtb._src.calculators.properties.vibration import (
+    IRResult,
+    RamanResult,
+    VibResult,
+)
+from dxtb._src.components.classicals import (
+    Classical,
+    ClassicalList,
+    new_dispersion,
+    new_halogen,
+    new_repulsion,
+)
+from dxtb._src.components.interactions import Interaction, InteractionList
+from dxtb._src.components.interactions.container import Charges, Potential
+from dxtb._src.components.interactions.coulomb import new_aes2, new_es2, new_es3
+from dxtb._src.components.interactions.dispersion import new_d4sc
+from dxtb._src.components.interactions.field import efield
+from dxtb._src.components.interactions.field import efieldgrad as efield_grad
+from dxtb._src.constants import defaults
+from dxtb._src.param import Param, ParamModule
+from dxtb._src.timing import timer
+from dxtb._src.typing import Any, Self, Tensor, TensorLike, override
+from dxtb.config import Config
+from dxtb.integrals import Integrals
+
+from .abc import GetPropertiesMixin, PropertyNotImplementedError
+
+
+class CalculatorCache(TensorLike):
+    """
+    Cache for Calculator that extends TensorLike.
+
+    This class provides caching functionality for storing multiple calculation results.
+    """
+
+    _cache_keys: dict[str, str | None]
+    """Dictionary of cache keys and their corresponding hash values."""
+
+    __slots__ = [
+        "energy",
+        #
+        "forces",
+        "hessian",
+        "vibration",
+        "normal_modes",
+        "frequencies",
+        #
+        "dipole",
+        "quadrupole",
+        "polarizability",
+        "hyperpolarizability",
+        #
+        "dipole_deriv",
+        "pol_deriv",
+        "ir",
+        "ir_intensities",
+        "raman",
+        "raman_intensities",
+        "raman_depol",
+        #
+        "hcore",
+        "overlap",
+        "dipint",
+        "quadint",
+        #
+        "bond_orders",
+        "charges",
+        "coefficients",
+        "density",
+        "fock",
+        "iterations",
+        "mo_energies",
+        "occupation",
+        "potential",
+        #
+        "_cache_keys",
+    ]
+
+    def __init__(
+        self,
+        device: torch.device | None = None,
+        dtype: torch.dtype | None = None,
+        #
+        energy: Tensor | None = None,
+        forces: Tensor | None = None,
+        hessian: Tensor | None = None,
+        vibration: VibResult | None = None,
+        normal_modes: Tensor | None = None,
+        frequencies: Tensor | None = None,
+        #
+        dipole: Tensor | None = None,
+        quadrupole: Tensor | None = None,
+        polarizability: Tensor | None = None,
+        hyperpolarizability: Tensor | None = None,
+        #
+        dipole_deriv: Tensor | None = None,
+        pol_deriv: Tensor | None = None,
+        ir: IRResult | None = None,
+        ir_intensities: Tensor | None = None,
+        raman: RamanResult | None = None,
+        raman_intensities: Tensor | None = None,
+        raman_depol: Tensor | None = None,
+        #
+        hcore: Tensor | None = None,
+        overlap: ints.types.OverlapIntegral | None = None,
+        dipint: ints.types.DipoleIntegral | None = None,
+        quadint: ints.types.QuadrupoleIntegral | None = None,
+        #
+        bond_orders: Tensor | None = None,
+        coefficients: Tensor | None = None,
+        charges: Charges | None = None,
+        density: Tensor | None = None,
+        fock: Tensor | None = None,
+        mo_energies: Tensor | None = None,
+        occupation: Tensor | None = None,
+        potential: Potential | None = None,
+        iterations: int | None = None,
+        #
+        _cache_keys: dict[str, str | None] | None = None,
+    ) -> None:
+        """
+        Initialize the Cache class with optional device and dtype settings.
+
+        Parameters
+        ----------
+        device : torch.device, optional
+            The device on which the tensors are stored.
+        dtype : torch.dtype, optional
+            The data type of the tensors.
+        """
+        super().__init__(device=device, dtype=dtype)
+        self.energy = energy
+        self.forces = forces
+        self.hessian = hessian
+        self.vibration = vibration
+        self.normal_modes = normal_modes
+        self.frequencies = frequencies
+
+        self.dipole = dipole
+        self.quadrupole = quadrupole
+        self.polarizability = polarizability
+        self.hyperpolarizability = hyperpolarizability
+
+        self.dipole_deriv = dipole_deriv
+        self.pol_deriv = pol_deriv
+        self.ir = ir
+        self.ir_intensities = ir_intensities
+        self.raman = raman
+        self.raman_intensities = raman_intensities
+        self.raman_depol = raman_depol
+
+        self.hcore = hcore
+        self.overlap = overlap
+        self.dipint = dipint
+        self.quadint = quadint
+
+        self.bond_orders = bond_orders
+        self.coefficients = coefficients
+        self.charges = charges
+        self.density = density
+        self.fock = fock
+        self.iterations = iterations
+        self.mo_energies = mo_energies
+        self.occupation = occupation
+        self.potential = potential
+
+        self._cache_keys = (
+            {prop: None for prop in self.__slots__ if prop != "_cache_keys"}
+            if _cache_keys is None
+            else _cache_keys
+        )
+
+    def __getitem__(self, key: str) -> Any:
+        """
+        Get an item from the cache.
+
+        Parameters
+        ----------
+        key : str
+            The key of the item to retrieve.
+
+        Returns
+        -------
+        Tensor | None
+            The value associated with the key, if it exists.
+        """
+        if key in self.__slots__:
+            return getattr(self, key)
+        raise KeyError(f"Key '{key}' not found in Cache.")
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        """
+        Set an item in the cache.
+
+        Parameters
+        ----------
+        key : str
+            The key of the item to set.
+        value : Tensor
+            The value to be associated with the key.
+        """
+        if key == "wrapper":
+            raise RuntimeError(
+                "Key 'wrapper' detected. This happens if the cache "
+                "decorator is not the innermost decorator of the "
+                "Calculator method that you are trying to cache. Please "
+                "move the cache decorator to the innermost position. "
+                "Otherwise, the name of the method cannot be inferred "
+                "correctly."
+            )
+
+        # also set the content of the spectroscopic results
+        if key == "vibration":
+            assert isinstance(value, VibResult)
+            setattr(self, "frequencies", value.freqs)
+            setattr(self, "normal_modes", value.modes)
+        if key == "ir":
+            assert isinstance(value, IRResult)
+            setattr(self, "frequencies", value.freqs)
+            setattr(self, "ir_intensities", value.ints)
+        if key == "raman":
+            assert isinstance(value, RamanResult)
+            setattr(self, "frequencies", value.freqs)
+            setattr(self, "raman_intensities", value.ints)
+            setattr(self, "raman_depol", value.depol)
+
+        if key in self.__slots__:
+            setattr(self, key, value)
+        else:
+            raise KeyError(f"Key '{key}' cannot be set in Cache.")
+
+    def __contains__(self, key: str) -> bool:
+        """
+        Check if a key is in the cache.
+
+        Parameters
+        ----------
+        key : str
+            The key to check in the cache.
+
+        Returns
+        -------
+        bool
+            True if the key is in the cache, False otherwise
+        """
+        return key in self.__slots__ and getattr(self, key) is not None
+
+    def reset(self, key: str) -> None:
+        """
+        Clearing specific cached value by key.
+
+        Parameters
+        ----------
+        key : str | None, optional
+            The key to reset. If ``None``, all keys are reset. Defaults to
+            ``None``.
+        """
+        setattr(self, key, None)
+
+    def reset_all(self) -> None:
+        """
+        Reset the cache by clearing all cached values.
+
+        Parameters
+        ----------
+        key : str | None, optional
+            The key to reset. If ``None``, all keys are reset. Defaults to
+            ``None``.
+        """
+        for key in self.__slots__:
+            if key != "_cache_keys":
+                setattr(self, key, None)
+
+        self._cache_keys = {
+            prop: None for prop in self.__slots__ if prop != "_cache_keys"
+        }
+
+    def list_cached_properties(self) -> list[str]:
+        """
+        List all cached properties.
+
+        Returns
+        -------
+        list[str]
+            List of cached properties.
+        """
+        return [
+            key
+            for key in self.__slots__
+            if getattr(self, key) is not None and key != "_cache_keys"
+        ]
+
+    # cache validation
+
+    def set_cache_key(self, key: str, hashval: str) -> None:
+        """
+        Set the cache key for a specific property.
+
+        Parameters
+        ----------
+        key : str
+            The key of the item to set.
+        hashval : str
+            The hash value to be associated with the key.
+        """
+        if self._cache_keys is None:
+            raise RuntimeError("Cache keys have not been initialized.")
+
+        if key not in self._cache_keys:
+            raise KeyError(f"Key '{key}' cannot be set in Cache.")
+
+        self._cache_keys[key] = hashval
+
+    def get_cache_key(self, key: str) -> str | None:
+        """
+        Get the cache key for a specific property.
+
+        Parameters
+        ----------
+        key : str
+            The key of the item to get.
+
+        Returns
+        -------
+        str | None
+            The hash value associated with the key.
+        """
+        if self._cache_keys is None:
+            raise RuntimeError("Cache keys have not been initialized.")
+
+        if key not in self._cache_keys:
+            raise KeyError(f"Key '{key}' not found in '_cache_keys'.")
+
+        return self._cache_keys[key]
+
+    def __len__(self) -> int:
+        """
+        Return the number of cached properties.
+
+        Returns
+        -------
+        int
+            Number of cached properties.
+        """
+        return len(self.list_cached_properties())
+
+    # printing
+
+    def __str__(self) -> str:  # pragma: no cover
+        """Return a string representation of the Cache object."""
+        counter = 0
+        l = []
+        for key in self.__slots__:
+            # skip "_cache_keys"
+            if key.startswith("_"):
+                continue
+
+            attr = getattr(self, key)
+
+            # count populated values
+            if attr is not None:
+                counter += 1
+
+            # reduce printout for tensors
+            if isinstance(attr, Tensor):
+                attr = attr.shape if len(attr.shape) > 0 else attr
+
+            l.append(f"{key}={attr!r}")
+
+        return (
+            f"{self.__class__.__name__}(populated={counter}/{len(l)}, "
+            f"{', '.join(l)})"
+        )
+
+    def __repr__(self) -> str:  # pragma: no cover
+        """Return a representation of the Cache object."""
+        return str(self)
+
+
+class BaseCalculator(GetPropertiesMixin, TensorLike):
+    """
+    Base calculator for the extended tight-binding (xTB) models.
+    """
+
+    numbers: Tensor
+    """Atomic numbers for all atoms in the system (shape: ``(..., nat)``)."""
+
+    cache: CalculatorCache
+    """Cache for storing multiple calculation results."""
+
+    classicals: ClassicalList
+    """Classical contributions."""
+
+    interactions: InteractionList
+    """Interactions to minimize in self-consistent iterations."""
+
+    integrals: Integrals
+    """Integrals for the extended tight-binding model."""
+
+    ihelp: IndexHelper
+    """Helper class for indexing."""
+
+    opts: Config
+    """Calculator configuration."""
+
+    results: dict[str, Any]
+    """Results container."""
+
+    _ncalcs: int
+    """
+    Number of calculations performed with the calculator. Helpful for keeping
+    track of cache hits and actual new calculations.
+    """
+
+    def __init__(
+        self,
+        numbers: Tensor,
+        par: Param | ParamModule,
+        *,
+        classical: list[Classical] | tuple[Classical] | Classical | None = None,
+        interaction: (
+            list[Interaction] | tuple[Interaction] | Interaction | None
+        ) = None,
+        opts: dict[str, Any] | Config | None = None,
+        cache: CalculatorCache | None = None,
+        device: torch.device | None = None,
+        dtype: torch.dtype | None = None,
+        **kwargs: Any,
+    ) -> None:
+        """
+        Instantiate the Calculator object with the following parameters:
+
+        Parameters
+        ----------
+        numbers : Tensor
+            Atomic numbers for all atoms in the system (shape: ``(..., nat)``).
+        par : Param
+            Representation of an extended tight-binding model (full xTB
+            parametrization). Decides energy contributions.
+        classical : Sequence[Classical] | None, optional
+            Additional classical contributions. Defaults to ``None``.
+        interaction : Sequence[Interaction] | None, optional
+            Additional self-consistent contributions (interactions).
+            Defaults to ``None``.
+        opts : dict[str, Any] | None, optional
+            Calculator options. If ``None`` (default) is given, default options
+            are used automatically.
+        device : torch.device | None, optional
+            Device to store the tensor on. If ``None`` (default), the default
+            device is used.
+        dtype : torch.dtype | None, optional
+            Data type of the tensor. If ``None`` (default), the data type is
+            inferred.
+        kwargs : Any
+            Additional keyword arguments.
+            - ``auto_int_level``: Automatically set the integral level based on
+              the parametrization. Defaults to ``True``. This should only be
+              turned off for testing purposes.
+            - ``timer``: Enable the timer. Defaults to ``False``. The global
+              timer can also be enabled by setting the environment variable
+              ``DXTB_TIMER`` to ``1``.
+        """
+        if not timer.enabled and kwargs.pop("timer", False):
+            timer.enable()
+
+        timer.start("Calculator", parent_uid="Setup")
+
+        # setup verbosity first
+        opts = opts if opts is not None else {}
+        if isinstance(opts, dict):
+            opts = dict(opts)
+            OutputHandler.verbosity = opts.pop("verbosity", 1)
+
+        OutputHandler.write_stdout("===========", v=4)
+        OutputHandler.write_stdout("CALCULATION", v=4)
+        OutputHandler.write_stdout("===========", v=4)
+        OutputHandler.write_stdout("", v=4)
+        OutputHandler.write_stdout("Setup Calculator", v=4)
+
+        allowed_dtypes = (torch.int16, torch.int32, torch.int64)
+        if numbers.dtype not in allowed_dtypes:
+            raise DtypeError(
+                "Dtype of atomic numbers must be one of the following to allow "
+                f"indexing: '{', '.join([str(x) for x in allowed_dtypes])}', "
+                f"but is '{numbers.dtype}'"
+            )
+        self.numbers = numbers
+        unique: Tensor = torch.unique(numbers)
+
+        super().__init__(device, dtype)
+        dd = {"device": self.device, "dtype": self.dtype}
+
+        # Internally, we will always use the differentiable parameter model.
+        if not isinstance(par, ParamModule):
+            par = ParamModule(par, **self.dd)
+
+        # If method not explicitly set in options, we try to get it from the
+        # parametrization.
+        if isinstance(opts, dict) and "method" not in opts:
+            if par.meta is not None:
+                if par.meta.name is not None:
+                    opts["method"] = par.meta.name.casefold()
+
+        # setup calculator options
+        if isinstance(opts, dict):
+            opts = Config(**opts, **dd)
+        self.opts = opts
+
+        # Set integral level based on parametrization. For the tests, we want
+        # to turn this off. Otherwise, all GFN2-xTB tests will fail without
+        # `libcint`, even when integrals are not tested (e.g. D4SC). This
+        # cannot be avoided becaused this constructor always calls the
+        # integral factories later.
+        # If the user sets the level manually, we will still set it to the
+        # maximum level required for the respective parametrization.
+        if kwargs.pop("auto_int_level", True):
+            if par.meta is not None and par.meta.name is not None:
+                if "gfn1" in par.meta.name.casefold():
+                    self.opts.ints.level = max(
+                        labels.INTLEVEL_HCORE, self.opts.ints.level
+                    )
+                elif "gfn2" in par.meta.name.casefold():
+                    self.opts.ints.level = max(
+                        labels.INTLEVEL_QUADRUPOLE, self.opts.ints.level
+                    )
+
+        # create cache
+        self.cache = CalculatorCache(**dd) if cache is None else cache
+
+        if self.opts.batch_mode == 0 and numbers.ndim > 1:
+            self.opts.batch_mode = 1
+
+        # PERF: The IndexHelper is created on CPU and moved to the device of the
+        # `number` tensor. This is required for the instantiation of the
+        # integral classes later in this constructor. However, if the `libcint`
+        # interface is used, we need to transfer the IndexHelper to the CPU
+        # again. Correspondingly, we have one unnecessary transfer.
+        # (It could be circumvented if the intgrals are calculated immediately
+        # after instantiation, i.e., compute integrals with `libcint` first,
+        # then move IndexHelper to the device and compute Hamiltonian. However,
+        # this would require a change in the code structure. So we take the
+        # very small performance hit here.)
+        self.ihelp = IndexHelper.from_numbers(
+            numbers, par, self.opts.batch_mode
+        )
+
+        ################
+        # INTERACTIONS #
+        ################
+
+        # setup self-consistent contributions
+        OutputHandler.write_stdout_nf(" - Interactions      ... ", v=4)
+
+        es2 = (
+            new_es2(unique, par, **dd)
+            if not {"all", "es2"} & set(self.opts.exclude)
+            else None
+        )
+        aes2 = (
+            new_aes2(unique, par, **dd)
+            if not {"all", "aes2"} & set(self.opts.exclude)
+            else None
+        )
+        es3 = (
+            new_es3(unique, par, **dd)
+            if not {"all", "es3"} & set(self.opts.exclude)
+            else None
+        )
+        d4sc = (
+            new_d4sc(numbers, par, **dd)
+            if not {"all", "d4sc", "disp"} & set(self.opts.exclude)
+            else None
+        )
+
+        if interaction is None:
+            self.interactions = InteractionList(es2, aes2, es3, d4sc, **dd)
+        elif isinstance(interaction, Interaction):
+            self.interactions = InteractionList(
+                es2, aes2, es3, d4sc, interaction, **dd
+            )
+        elif isinstance(interaction, (list, tuple)):
+            self.interactions = InteractionList(
+                es2, aes2, es3, d4sc, *interaction, **dd
+            )
+        else:
+            raise TypeError(
+                "Expected 'interaction' to be 'None' or of type 'Interaction', "
+                "'list[Interaction]', or 'tuple[Interaction]', but got "
+                f"'{type(interaction).__name__}'."
+            )
+
+        OutputHandler.write_stdout("done", v=4)
+
+        ##############
+        # CLASSICALS #
+        ##############
+
+        # setup non-self-consistent contributions
+        OutputHandler.write_stdout_nf(" - Classicals        ... ", v=4)
+
+        halogen = (
+            new_halogen(unique, par, **dd)
+            if not {"all", "hal"} & set(self.opts.exclude)
+            else None
+        )
+        dispersion = (
+            new_dispersion(numbers, par, **dd)
+            if not {"all", "disp"} & set(self.opts.exclude)
+            else None
+        )
+        repulsion = (
+            new_repulsion(unique, par, **dd)
+            if not {"all", "rep"} & set(self.opts.exclude)
+            else None
+        )
+
+        if classical is None:
+            self.classicals = ClassicalList(
+                halogen, dispersion, repulsion, **dd
+            )
+        elif isinstance(classical, Classical):
+            self.classicals = ClassicalList(
+                halogen, dispersion, repulsion, classical, **dd
+            )
+        elif isinstance(classical, (list, tuple)):
+            self.classicals = ClassicalList(
+                halogen, dispersion, repulsion, *classical, **dd
+            )
+        else:
+            raise TypeError(
+                "Expected 'classical' to be 'None' or of type 'Classical', "
+                "'list[Classical]', or 'tuple[Classical]', but got "
+                f"'{type(classical).__name__}'."
+            )
+
+        OutputHandler.write_stdout("done", v=4)
+
+        #############
+        # INTEGRALS #
+        #############
+
+        OutputHandler.write_stdout_nf(" - Integrals         ... ", v=4)
+
+        # figure out integral level from interactions
+        if efield.LABEL_EFIELD in self.interactions.labels:
+            if self.opts.ints.level < labels.INTLEVEL_DIPOLE:
+                OutputHandler.warn(
+                    "Setting integral level to DIPOLE "
+                    f"({labels.INTLEVEL_DIPOLE}) due to electric field "
+                    "interaction."
+                )
+            self.opts.ints.level = max(
+                labels.INTLEVEL_DIPOLE, self.opts.ints.level
+            )
+
+        if efield_grad.LABEL_EFIELD_GRAD in self.interactions.labels:
+            if self.opts.ints.level < labels.INTLEVEL_DIPOLE:
+                OutputHandler.warn(
+                    "Setting integral level to QUADRUPOLE "
+                    f"{labels.INTLEVEL_DIPOLE} due to electric field "
+                    "gradient interaction."
+                )
+            self.opts.ints.level = max(
+                labels.INTLEVEL_QUADRUPOLE, self.opts.ints.level
+            )
+
+        # setup integral driver and integral container
+        mgr = ints.DriverManager(self.opts.ints.driver, **dd)
+        mgr.create_driver(numbers, par, self.ihelp)
+
+        self.integrals = ints.Integrals(
+            mgr, intlevel=self.opts.ints.level, **dd
+        )
+
+        if self.opts.ints.level >= labels.INTLEVEL_OVERLAP:
+            self.integrals.hcore = ints.factories.new_hcore(
+                numbers, par, self.ihelp, **dd
+            )
+            self.integrals.overlap = ints.factories.new_overlap(
+                driver=mgr.driver_type, **dd
+            )
+
+        if self.opts.ints.level >= labels.INTLEVEL_DIPOLE:
+            self.integrals.dipole = ints.factories.new_dipint(
+                driver=mgr.driver_type, **dd
+            )
+
+        if self.opts.ints.level >= labels.INTLEVEL_QUADRUPOLE:
+            self.integrals.quadrupole = ints.factories.new_quadint(
+                driver=mgr.driver_type, **dd
+            )
+
+        OutputHandler.write_stdout("done\n", v=4)
+
+        self._ncalcs = 0
+        timer.stop("Calculator")
+
+    def reset(self) -> None:
+        """Reset the calculator to its initial state."""
+        self.classicals.reset_all()
+        self.interactions.reset_all()
+        self.integrals.reset_all()
+        self.cache.reset_all()
+
+    @abstractmethod
+    def calculate(
+        self,
+        properties: list[str],
+        positions: Tensor,
+        chrg: Tensor | float | int = defaults.CHRG,
+        spin: Tensor | float | int | None = defaults.SPIN,
+        **kwargs: Any,
+    ):
+        """
+        Calculate the requested properties. This is more of a dispatcher method
+        that calls the appropriate methods of the Calculator.
+
+        Parameters
+        ----------
+        properties : list[str]
+            List of properties to calculate.
+        positions : Tensor
+            Cartesian coordinates of all atoms (shape: ``(..., nat, 3)``).
+        chrg : Tensor | float | int, optional
+            Total charge. Defaults to 0.
+        spin : Tensor | float | int, optional
+            Number of unpaired electrons. Defaults to ``None``.
+        """
+
+    def get_property(
+        self,
+        name: str,
+        positions: Tensor,
+        chrg: Tensor | float | int = defaults.CHRG,
+        spin: Tensor | float | int | None = defaults.SPIN,
+        allow_calculation: bool = True,
+        return_clone: bool = False,
+        **kwargs: Any,
+    ) -> Tensor | None:
+        """
+        Get the named property.
+
+        Parameters
+        ----------
+        name : str
+            Name of the property to get.
+        positions : Tensor
+            Cartesian coordinates of all atoms (shape: ``(..., nat, 3)``).
+        chrg : Tensor | float | int, optional
+            Total charge. Defaults to 0.
+        spin : Tensor | float | int, optional
+            Number of unpaired electrons. Defaults to ``None``.
+        allow_calculation : bool, optional
+            If the property is not present, allow its calculation. This does
+            not check if we even allow caching or if the inputs are the same.
+            Use with caution. Defaults to ``True``.
+        return_clone : bool, optional
+            If True, return a clone of the property. Defaults to ``False``.
+        """
+        if name not in self.implemented_properties:
+            raise PropertyNotImplementedError(
+                f"Property '{name}' not implemented. Use one of: "
+                f"{self.implemented_properties}."
+            )
+
+        # If we do not allow calculation and do not have the property in the
+        # cache, there's nothing we can do. Note that this does not check if we
+        # even allow caching or if the inputs are the same.
+        if allow_calculation is False and name not in self.cache:
+            return None
+
+        # Before calculating, let's do some device and dtype checks.
+        if self.device != positions.device:
+            raise DeviceError(
+                f"Device mismatch: Calculator is on '{self.device}', but "
+                f"positions are on '{positions.device}'."
+            )
+        if self.dtype != positions.dtype:
+            raise DtypeError(
+                f"Dtype mismatch: Calculator is of type '{self.dtype}', but "
+                f"positions are of type '{positions.dtype}'."
+            )
+        if isinstance(chrg, Tensor):
+            if self.dtype != chrg.dtype:
+                raise DtypeError(
+                    f"Dtype mismatch: Calculator is of type '{self.dtype}', "
+                    f"but charge is of type '{chrg.dtype}'."
+                )
+            if self.device != chrg.device:
+                raise DeviceError(
+                    f"Device mismatch: Calculator is on '{self.device}', but "
+                    f"charge is on '{chrg.device}'."
+                )
+        if isinstance(spin, Tensor):
+            if self.dtype != spin.dtype:
+                raise DtypeError(
+                    f"Dtype mismatch: Calculator is of type '{self.dtype}', "
+                    f"but spin is of type '{spin.dtype}'."
+                )
+            if self.device != spin.device:
+                raise DeviceError(
+                    f"Device mismatch: Calculator is on '{self.device}', but "
+                    f"spin is on '{spin.device}'."
+                )
+
+        # All the cache checks are handled deep within `calculate`. No need to
+        # do it here as well.
+        self.calculate([name], positions, chrg=chrg, spin=spin, **kwargs)
+
+        # For some reason the calculator was not able to do what we want...
+        if name not in self.cache:
+            raise PropertyNotImplementedError(
+                f"Property '{name}' not present after calculation.\n"
+                "This seems like an internal error. (Maybe the method you "
+                "are calling has no cache decorator?)"
+            )
+
+        if return_clone is False:
+            return self.cache[name]
+
+        result = self.cache[name]
+        if isinstance(result, Tensor):
+            result = result.clone()
+        return result
+
+    @override
+    def type(self, dtype: torch.dtype) -> Self:
+        """
+        Returns a copy of the class instance with specified floating point type.
+
+        This method overrides the usual approach because the
+        :class:`dxtb.Calculator`'s arguments and slots differ significantly.
+        Hence, it is not practical to instantiate a new copy.
+
+        Parameters
+        ----------
+        dtype : torch.dtype
+            Floating point type.
+
+        Returns
+        -------
+        Self
+            A copy of the class instance with the specified dtype.
+
+        Raises
+        ------
+        RuntimeError
+            If the ``__slots__`` attribute is not set in the class.
+        DtypeError
+            If the specified dtype is not allowed.
+        """
+
+        if self.dtype == dtype:
+            return self
+
+        if len(self.__slots__) == 0:
+            raise RuntimeError(
+                f"The `type` method requires setting ``__slots__`` in the "
+                f"'{self.__class__.__name__}' class."
+            )
+
+        if dtype not in self.allowed_dtypes:
+            raise DtypeError(
+                f"Only '{self.allowed_dtypes}' allowed (received '{dtype}')."
+            )
+
+        self.classicals = self.classicals.type(dtype)
+        self.interactions = self.interactions.type(dtype)
+        self.integrals = self.integrals.type(dtype)
+        self.cache = self.cache.type(dtype)
+
+        # simple override in config
+        self.opts.dtype = dtype
+
+        # hard override of the dtype in TensorLike
+        self.override_dtype(dtype)
+
+        return self
+
+    def __str__(self) -> str:  # pragma: no cover
+        """
+        Return a string representation of the instance.
+        """
+        num_atoms = self.numbers.shape[-1]
+        device = self.device
+        dtype = self.dtype
+        num_calculations = self._ncalcs
+        num_classicals = len(self.classicals)
+        num_interactions = len(self.interactions)
+        num_integrals = len(self.integrals)
+        cache_size = len(self.cache)
+
+        return (
+            f"{self.__class__.__name__}(\n"
+            f"  Number of Atoms: {num_atoms}\n"
+            f"  Device: {device}\n"
+            f"  Data Type: {dtype}\n"
+            f"  Calculations Performed: {num_calculations}\n"
+            f"  Cache Size: {cache_size}\n"
+            f"  Classical Contributions: {num_classicals} {self.classicals.labels}\n"
+            f"  Interactions: {num_interactions} {self.interactions.labels}\n"
+            f"  Integrals: {num_integrals} {self.integrals.labels}\n"
+            f")"
+        )
+
+    def __repr__(self) -> str:  # pragma: no cover
+        """Return a representation of the instance."""
+        return str(self)

@@ -1,0 +1,19 @@
+{
+  "selection_method": "First require mean_generalisation_gap <= overfit_gap_limit; then sort by mean validation balanced accuracy (descending), mean validation MCC (descending), validation BA standard deviation (ascending), and mean node count (ascending).",
+  "overfit_gap_limit": 0.05,
+  "radius": 2,
+  "nbits": 2048,
+  "max_depth": 20.0,
+  "min_samples_split": 5,
+  "min_samples_leaf": 1,
+  "criterion": "gini",
+  "max_features": 0.5,
+  "ccp_alpha": 1e-05,
+  "mean_validation_balanced_accuracy": 0.9775812569542011,
+  "sd_validation_balanced_accuracy": 0.004998887625384862,
+  "mean_validation_mcc": 0.9452457950219774,
+  "mean_validation_roc_auc": 0.9814199737806207,
+  "mean_generalisation_gap": 0.016317276752325135,
+  "mean_node_count": 117.26666666666667,
+  "pareto_optimal": true
+}
