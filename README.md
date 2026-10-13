@@ -58,10 +58,6 @@ pretraining INI use `/storage/msszkb_grp/msshfg`; set this path for your install
 | `experiment/regression_metrics.json` | Predictor evaluation metrics. |
 | `experiment/train_predictions.csv`, `val_predictions.csv`, `test_predictions.csv` | Predictions and targets for evaluating each split. Verification uses training predictions. |
 
-If `run_manifest.json` is also present, the prediction script reads it for
-additional target/source checks. `training_settings.json` is a training record;
-it is not automatically read by that check.
-
 ## Chemical-space reference
 
 All paths in this table are beneath `chemical_space_reference/`.
@@ -84,7 +80,13 @@ clusters. Assignment uses three bonding PCs, three structural PCs and log P,
 with the saved scaling. The plot displays bonding PC1, structural PC1 and log P.
 Mapping applies saved transforms and labels; it does not refit PCA or recluster.
 
-## Generator files and analysis tools
+## Saved generator and analysis tools
+
+A **prior** is the pretrained generator used as the starting point for a search.
+`prior.pt` contains its learned parameters. Each generation run loads this file
+and saves its adapted generator separately as `agent_final.pt`; the starting
+prior is retained. A new search or a different random seed does not require
+pretraining again.
 
 | Path | Purpose |
 | --- | --- |
@@ -99,12 +101,40 @@ Mapping applies saved transforms and labels; it does not refit PCA or recluster.
 Optional analysis tools are separate from generation and mapping. Supply their
 input/output paths explicitly; inspect `--help` before running them.
 
+## Python environments
+
+A Conda environment is a separate Python installation with its own packages.
+`conda activate NAME` selects that environment's Python and libraries. The names
+`nmo` and `fragnet` identify the two environments used by the batch script; they
+are not model files and are not created by cloning this repository.
+
+| Environment | When to use it | Key software required by the code |
+| --- | --- | --- |
+| `nmo` | Generation and optional generator pretraining. | The group's NMO dependencies, including PyTorch, RDKit, NumPy, pandas, Matplotlib, tqdm, GGS and group-selfies. The entry points locate NMO/GGS code in `NMO_source_code/`. |
+| `fragnet` | FragNet training, verification, standalone prediction, the prediction worker, and mapping in the supplied batch job. | PyTorch, PyTorch Geometric, torch-scatter, RDKit, NumPy, pandas, PyYAML, NetworkX, SciPy, scikit-learn, LMDB and the code in `fragnet_source_code/`. Mapping additionally uses ASE, DScribe and Plotly. |
+
+These are the main dependencies, not an export of every installed package.
+To inspect the actual installations and versions on Warwick:
+
+```bash
+conda list -n nmo
+conda list -n fragnet
+```
+
+During generation, NMO runs in `nmo` and the script starts a persistent FragNet
+worker using the Python executable from `fragnet`. This keeps their dependencies
+separate. The Slurm script activates the environments automatically; for manual
+prediction/mapping use `conda activate fragnet`, and for pretraining use
+`conda activate nmo`. Optional analysis tools need the packages used by that tool.
+
+Mapping requires the RDKit, scikit-learn and DScribe versions recorded in the
+saved reference bundle. Reproduce the working environments for another machine
+rather than assuming that arbitrary package versions will be compatible.
+
 ## Run on Warwick
 
 Large checkpoints, graph datasets and fitted reference bundles are kept on
 Warwick. A code-only GitHub clone is not sufficient to run the workflow.
-Use the existing `nmo` and `fragnet` Conda environments. Mapping requires the
-RDKit, scikit-learn and DScribe versions recorded in the reference bundle.
 
 ```bash
 cd /storage/msszkb_grp/msshfg
@@ -115,6 +145,21 @@ This CPU pilot checks five stored and regenerated graph predictions, then runs
 with seed 123 and at most 256 oracle evaluations. Mapping runs in `fragnet` and
 stops if its package versions differ from the reference. Each run name includes
 the Slurm job ID to keep outputs separate.
+
+### Choosing a seed
+
+A random seed sets the starting state of the random-number generators. **123 is
+an arbitrary default**, not a preferred molecule, cluster or scientifically
+optimised value. Other integers from 0 to 2**32 - 1 can be used, such as 0, 1 or 42.
+Keeping the seed and setup fixed helps reproduce a run; changing the seed samples
+a different search. Exact reproducibility can also depend on software, hardware
+and parallel execution.
+
+To change the generation seed, edit `--seed 123` in `generate_and_map.sbatch` and
+update its `RUN_NAME` label to match. For example, use `--seed 42` with
+`RUN_NAME="pilot_seed42_${SLURM_JOB_ID}"`. This reuses the same prior and FragNet
+checkpoint. The predictor's graph-construction seed is read separately from
+`fragnet_selected.yaml`.
 
 | Output under `nmo_fragnet_generation/` | Contents |
 | --- | --- |
@@ -129,15 +174,20 @@ python generate_molecules.py predict --input molecules.csv --output predictions_
 python map_chemical_space.py --input predictions_new/predictions.csv --output mapped_new
 ```
 
-## Scientific settings
+## FragNet integration
 
-The generator is a three-layer, 512-unit RNN. NMO retains genetic search, replay,
-molecular validation, SA and rotatable-bond calculations. FragNet runs in a
-persistent process using its own environment. Fitness uses predicted
-`log_P_upconversion` with SA and rotatable-bond penalties: no extra logarithm
-or molecular-length/area penalty. Failed predictions receive zero reward and
-remain marked as failures. Per-run NMO source copies handle empty batches,
-the evaluation budget and checkpoint saving without overwriting source files.
+The workflow calls NMO's search implementation and replaces the property
+calculation with FragNet predictions. It does not replace NMO's search algorithm;
+per-run source copies handle empty batches, the evaluation budget and checkpoint
+saving without overwriting the NMO sources.
+
+FragNet loads `experiment/ft.pt` using the architecture in `fragnet_selected.yaml`.
+Molecular graph construction and stereochemistry checks use the same functions
+as predictor training. Its output is `log_P_upconversion`, used directly without
+another logarithm. The configured fitness applies SA and rotatable-bond penalties,
+with no molecular-length/area penalty. Failed predictions receive zero reward
+and remain marked as failures. Prediction verification compares saved and newly
+constructed graphs with stored training predictions before the batch starts.
 
 Predicted properties are not xTB measurements. Mapping and cluster assignment
 alone do not establish molecular novelty or prediction accuracy.
@@ -153,9 +203,8 @@ python pretrain_generator.py nmo_fragnet_generation/pretrain.ini --seed 123
 
 The INI selects six epochs, batch size 128, learning rate 0.0005 and disabled
 masking. Output goes to `generator_prior_new`; a nonempty destination is refused.
-The launcher respects CPU/GPU selection, skips an unused grammar constructor
-and runs every requested epoch. NMO supplies the training routine, GGS/descriptor
-options, plots and logs. No manifest is created automatically; after validating
+This calls the NMO pretraining routine and retains its training options and
+outputs. No manifest is created automatically; after validating
 a new checkpoint, select it with generation's `--prior` option. Keep the supplied
 prior and its matching manifest together.
 
