@@ -1,93 +1,164 @@
-# Warwick molecular workflow
+# Molecular generation with FragNet
 
-Generate molecules with FragNet fitness, then map them onto the saved chemical
-space. The existing generator prior is reused; pretraining is optional.
+This project generates molecules with NMO, scores them using a trained FragNet
+property predictor, and maps them onto a fixed SMILES/GGS chemical space.
 
-## Files
+## Workflow
 
-| File | Role |
+1. **Prepare the models and reference once:** train FragNet, pretrain the NMO
+   generator, and build the chemical-space reference.
+2. **Generate and predict:** start from the saved generator prior. FragNet predicts
+   `log_P_upconversion` during the search; these predictions guide molecular fitness.
+3. **Map the results:** calculate candidate descriptors, apply the saved PCA
+   transforms and assign candidates to the reference clusters.
+
+The supplied models and reference are already prepared. A normal generation run
+reuses them. Generation and mapping are separate steps; mapping does not guide
+the search towards a particular cluster.
+
+## Main files
+
+| File | Purpose |
 | --- | --- |
-| `generate_molecules.py` | Generation and prediction; also provides `predict` and `verify`. Reuses graph/model functions from `initial_predictor_training/run_fragnet.py` without running predictor training. |
-| `map_chemical_space.py` | Applies the saved PCA and cluster assignments, then plots candidates. |
-| `pretrain_generator.py` | Runs the existing `NMO_source_code/genetic_GFN_framework/pretrain.py` with the three established fixes. |
-| `generate_and_map.sbatch` | Checks predictions, generates a pilot and maps its results. |
-| `nmo_fragnet_generation/pretrain.ini` | Original pretraining settings and a separate output directory. |
+| `generate_molecules.py` | Runs generation with FragNet fitness. Also supports independent `predict` and `verify` commands. Imports graph/model functions from `initial_predictor_training/run_fragnet.py` without starting predictor training. |
+| `map_chemical_space.py` | Maps scored candidates onto the saved reference and produces a plot and CSV. |
+| `pretrain_generator.py` | Runs NMO generator pretraining. Needed only when deliberately creating another prior. |
+| `generate_and_map.sbatch` | Slurm job: verify predictions, generate molecules, then map them. |
+| `nmo_fragnet_generation/pretrain.ini` | Generator-pretraining settings and output location. |
 
-Place the scripts at the project root. Keep these existing inputs:
+Keep these Python entry points and the Slurm file at the project root, alongside
+the directories below. Python defaults follow this location. The Slurm file and
+pretraining INI use `/storage/msszkb_grp/msshfg`; set this path for your installation.
 
-- `NMO_source_code/` and `fragnet_source_code/`: original implementations and vocabulary.
-- `initial_predictor_training/run_fragnet.py`: shared graph/model functions.
-- `fragnet_config_details/`: `fragnet_selected.yaml`, `experiment/ft.pt`, and optional `run_manifest.json` for source checks. Verification also uses `graph_data/train.pkl` and `experiment/train_predictions.csv`.
-- `nmo_fragnet_generation/generator_prior/`: `prior.pt` and its `prior_manifest.json`.
-- `chemical_space_reference/`: `reference.pkl`, `reference.html`, tables and metadata.
+## Source code and predictor training
 
-Large data stay on Warwick; cloning GitHub code alone is insufficient. Python
-paths follow the script location. The batch and INI use `/storage/msszkb_grp/msshfg`;
-edit that path if needed. `fragnet_analysis/` remains optional analysis code.
+| Path | Purpose |
+| --- | --- |
+| `NMO_source_code/` | Molecular generator, genetic search and molecular-processing implementations. |
+| `NMO_source_code/genetic_GFN_framework/train.py` | Generator optimisation and genetic-search loop. |
+| `NMO_source_code/genetic_GFN_framework/pretrain.py` | Learns a generator prior from molecular sequences. |
+| `NMO_source_code/genetic_GFN_framework/data/experiments/Voc_adapted` | Generator vocabulary; token ordering must match the saved prior. |
+| `NMO_source_code/genetic_GFN_framework/data/experiments/translated_smiles.smi` | Molecular sequences used for generator pretraining. |
+| `fragnet_source_code/` | FragNet architecture, molecular graph construction and feature definitions. |
+| `initial_predictor_training/run_fragnet.py` | Prepares data, builds graphs, trains/evaluates FragNet and provides shared graph/model functions. |
+| `initial_predictor_training/run_fragnet.sh` | Slurm submission script for predictor training. Set its script, source and data paths before submitting. |
+
+### `fragnet_config_details/`
+
+| File or directory | Purpose |
+| --- | --- |
+| `fragnet_selected.yaml` | Predictor architecture and training configuration. Inference loads the checkpoint from the supplied model directory. |
+| `training_settings.json` | Training settings, input/source hashes, target definition, split policy and stereochemical policy. |
+| `splits/` | Molecular datasets assigned to training, validation and testing. |
+| `graph_data/` | Prepared graph datasets, including `train.pkl`, `val.pkl` and `test.pkl`. Verification uses `train.pkl`. |
+| `graph_rejected.csv` | Molecules that could not be converted into accepted graphs, with rejection details. |
+| `experiment/ft.pt` | Best-validation predictor checkpoint used for inference. |
+| `experiment/last.pt` | Training checkpoint for resuming predictor training. |
+| `experiment/training_history.csv` | Training, validation and best-validation MSE by epoch. |
+| `experiment/regression_metrics.json` | Predictor evaluation metrics. |
+| `experiment/train_predictions.csv`, `val_predictions.csv`, `test_predictions.csv` | Predictions and targets for evaluating each split. Verification uses training predictions. |
+
+If `run_manifest.json` is also present, the prediction script reads it for
+additional target/source checks. `training_settings.json` is a training record;
+it is not automatically read by that check.
+
+## Chemical-space reference
+
+All paths in this table are beneath `chemical_space_reference/`.
+
+| File or directory | Purpose |
+| --- | --- |
+| `smiles_runs/`, `ggs_runs/` | Molecular run data used to construct the reference. |
+| `dim.py` | Calculates bonding and structural descriptors, fits PCA and saves the fitted preprocessing/transforms. |
+| `dim_reduction_details/` | Descriptor caches, PCA embeddings and fitted PCA data used to construct the reference. |
+| `analyse.py` | Clusters the PCA/property representation using BIRCH followed by agglomerative clustering, and exports the reference. |
+| `cluster_plots/` | Reference-cluster plots and analysis tables. |
+| `clustering_feature_scaling.csv` | Centering and scaling applied to each clustering feature. |
+| `reference.pkl` | Saved preprocessing, PCA, clustering models and reference data used for candidate mapping. |
+| `reference.csv` | Reference molecules, coordinates, properties and cluster labels. |
+| `reference.html` | Interactive reference plot used as the background for candidate overlays. |
+| `reference.json` | Reference counts, settings and provenance. |
+
+The reference contains 68,268 rows: 36,754 SMILES and 31,514 GGS, with 20 final
+clusters. Assignment uses three bonding PCs, three structural PCs and log P,
+with the saved scaling. The plot displays bonding PC1, structural PC1 and log P.
+Mapping applies saved transforms and labels; it does not refit PCA or recluster.
+
+## Generator files and analysis tools
+
+| Path | Purpose |
+| --- | --- |
+| `nmo_fragnet_generation/generator_prior/prior.pt` | Pretrained RNN parameters: the starting point for a generation run. |
+| `nmo_fragnet_generation/generator_prior/prior_manifest.json` | Prior settings and checkpoint/vocabulary hashes used to check compatibility. |
+| `generator_prior/valid_ratio.txt`, `valid_ratio.pdf` | Pretraining diagnostics showing sampled-molecule validity; inside `nmo_fragnet_generation/`. |
+| `generator_prior/n_atoms.txt`, `n_atoms_histogram.pdf` | Atom counts and their distribution for valid sampled molecules; inside `nmo_fragnet_generation/`. |
+| `fragnet_analysis/embeddings.py` | Creates an offline HTML report of FragNet fragment and fragment-connection contributions. |
+| `fragnet_analysis/neighbours.py` | Finds similar molecules using embedding cosine similarity or Morgan-fingerprint Tanimoto similarity, depending on the input. |
+| `fragnet_analysis/tanimoto_similarity/` | Tables and plots relating predictor error to molecular similarity. |
+
+Optional analysis tools are separate from generation and mapping. Supply their
+input/output paths explicitly; inspect `--help` before running them.
 
 ## Run on Warwick
+
+Large checkpoints, graph datasets and fitted reference bundles are kept on
+Warwick. A code-only GitHub clone is not sufficient to run the workflow.
+Use the existing `nmo` and `fragnet` Conda environments. Mapping requires the
+RDKit, scikit-learn and DScribe versions recorded in the reference bundle.
 
 ```bash
 cd /storage/msszkb_grp/msshfg
 sbatch generate_and_map.sbatch
 ```
 
-The CPU job checks five stored and regenerated graph predictions, then uses seed
-123 and at most 256 oracle evaluations. Each run gets its Slurm job ID in the name.
-It uses the existing `nmo` and `fragnet` environments. Mapping runs in `fragnet`
-and checks RDKit, scikit-learn and DScribe versions against the saved reference.
+This CPU pilot checks five stored and regenerated graph predictions, then runs
+with seed 123 and at most 256 oracle evaluations. Mapping runs in `fragnet` and
+stops if its package versions differ from the reference. Each run name includes
+the Slurm job ID to keep outputs separate.
 
-Results in `nmo_fragnet_generation/`:
-- `pilot_seed123_JOBID/`: history, `agent_final.pt`, all predictions, unique successful candidates, settings, logs and audit summaries.
-- `pilot_seed123_JOBID_space/`: `candidates_in_space.html`, mapped CSV, conformers, rejected rows and projection summary.
+| Output under `nmo_fragnet_generation/` | Contents |
+| --- | --- |
+| `pilot_seed123_JOBID/` | `full_history.csv`, adapted generator `agent_final.pt`, `fragnet_predictions.csv`, `unique_fragnet_candidates.csv`, configuration, logs and audit summaries. |
+| `pilot_seed123_JOBID_space/` | `candidates_in_space.html`, `candidates_in_space.csv`, generated conformers, rejected rows and projection summary. |
 
-For a separate CSV containing `smiles`, choose fresh output directories:
+To score a separate CSV containing a `smiles` column, choose new output directories:
+
 ```bash
 conda activate fragnet
 python generate_molecules.py predict --input molecules.csv --output predictions_new
 python map_chemical_space.py --input predictions_new/predictions.csv --output mapped_new
 ```
 
-## Scientific behaviour
+## Scientific settings
 
-Generation loads the three-layer, 512-unit RNN prior and checks its hash and
-vocabulary. NMO keeps its genetic search, replay, molecular validation, SA and
-rotatable-bond calculations. A persistent FragNet process supplies predictions
-inside the search loop. Fitness uses predicted `log_P_upconversion` with SA and
-rotatable-bond penalties, without another logarithm or length/area penalties.
-Failed predictions receive zero reward and retain their failure status.
-Existing empty-batch, budget, CPU and checkpoint fixes affect a per-run copy of
-NMO `train.py`; original sources and the saved prior are not overwritten.
+The generator is a three-layer, 512-unit RNN. NMO retains genetic search, replay,
+molecular validation, SA and rotatable-bond calculations. FragNet runs in a
+persistent process using its own environment. Fitness uses predicted
+`log_P_upconversion` with SA and rotatable-bond penalties: no extra logarithm
+or molecular-length/area penalty. Failed predictions receive zero reward and
+remain marked as failures. Per-run NMO source copies handle empty batches,
+the evaluation budget and checkpoint saving without overwriting source files.
 
-Mapping calculates descriptors, applies saved preprocessing/PCA, assigns the
-nearest BIRCH subcluster's agglomerative label and overlays the original plot.
-It never refits PCA or reclusters. Clustering uses all saved components and the
-property axis; display axes are bonding PC1, structural PC1 and log P.
-Predictions are not xTB measurements; mapping alone does not establish novelty.
+Predicted properties are not xTB measurements. Mapping and cluster assignment
+alone do not establish molecular novelty or prediction accuracy.
 
-The old `dim4.py` and `analyse4.py` are now `chemical_space_reference/dim.py` and
-`analyse.py`. They exported 68,268 reference rows (36,754 SMILES; 31,514 GGS) and
-20 clusters. Normal mapping reads that export. Old paths in reference metadata
-are provenance; inference also ignores old data paths in the architecture YAML
-and loads `ft.pt` from the supplied model directory.
+## Optional generator pretraining
 
-## Optional pretraining
+Normal runs do not require this step:
 
-Not needed for a normal run:
 ```bash
 conda activate nmo
 python pretrain_generator.py nmo_fragnet_generation/pretrain.ini --seed 123
 ```
 
-Uses the original dataset/vocabulary, six epochs, batch size 128, learning rate
-0.0005 and disabled masking. Writes to `generator_prior_new`; refuses a nonempty
-output directory. The wrapper retains the previous fixes: respect the selected
-GPU/CPU, omit an unused grammar constructor and execute all six epochs. NMO's
-training, GGS/descriptor options, diagnostic plots and logs remain in its source.
-It does not create a manifest: select a validated new checkpoint using `--prior`.
-Keep the existing prior with its original manifest; its hash records the historical script.
+The INI selects six epochs, batch size 128, learning rate 0.0005 and disabled
+masking. Output goes to `generator_prior_new`; a nonempty destination is refused.
+The launcher respects CPU/GPU selection, skips an unused grammar constructor
+and runs every requested epoch. NMO supplies the training routine, GGS/descriptor
+options, plots and logs. No manifest is created automatically; after validating
+a new checkpoint, select it with generation's `--prior` option. Keep the supplied
+prior and its matching manifest together.
 
-Syntax, shared-function equivalence, source patches and synthetic mapping are
-checked locally. Full inference, descriptor generation and Slurm execution still
-need testing on Warwick. The initial prediction check tests consistency, not the
-scientific validity of every generated molecule. Use `--help` for command options.
+Local checks cover syntax, shared-function equivalence, source patches and
+synthetic mapping. Full inference, descriptor generation and Slurm execution
+still require validation with the Warwick environments and saved data.
