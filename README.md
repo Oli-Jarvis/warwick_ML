@@ -111,16 +111,22 @@ Keep the main scripts at the project root alongside `NMO_source_code/`,
 shared functions. If moving the project, update paths in the batch script and
 pretraining INI.
 
-| File or directory | Role |
-| --- | --- |
-| `generate_molecules.py` | Generation with FragNet; also independent `predict` and `verify` commands. |
-| `map_chemical_space.py` | Fixed-reference projection, cluster assignment and plot. |
-| `generate_and_map.sbatch` | Verification, generation and mapping in sequence. |
-| `pretrain_generator.py`, `nmo_fragnet_generation/pretrain.ini` | Optional creation of a new generator prior. |
-| `fragnet_config_details/` | `fragnet_selected.yaml` and `training_settings.json`; `splits/`; prepared `graph_data/`; trained model and evaluation results in `experiment/`. |
-| `fragnet_config_details/experiment/` | `ft.pt` is the selected predictor; `last.pt` is the training checkpoint. Metrics, training history and split predictions record evaluation. Verification needs `train_predictions.csv` and `graph_data/train.pkl` from the parent directory. |
-| `nmo_fragnet_generation/generator_prior/` | `prior.pt`, matching `prior_manifest.json` and pretraining validity/atom-count diagnostics. |
-| `chemical_space_reference/` | `reference.pkl` contains fitted preprocessing/PCA/clustering; CSV/HTML hold reference molecules and plot; JSON records settings. `dim.py` and `analyse.py` construct it from `smiles_runs/` and `ggs_runs/`; caches and plots remain in `dim_reduction_details/` and `cluster_plots/`. |
+| Step / script | Inputs | Main outputs |
+| --- | --- | --- |
+| Generate — `generate_molecules.py` | Existing `prior.pt` + `prior_manifest.json`, matching `Voc_adapted`, FragNet `ft.pt` + YAML, seed and evaluation budget. No molecule CSV is required. | `generation/full_history.csv` (search history/fitness), `fragnet_predictions.csv` (SMILES, predicted log-property and failure status), `agent_final.pt` (updated generator). |
+| Verify — `generate_molecules.py verify` | FragNet checkpoint/YAML, `graph_data/train.pkl`, `experiment/train_predictions.csv`. | Prediction agreement checks in `run.log`; stops on mismatch. |
+| Predict — `generate_molecules.py predict` | CSV with `smiles`; FragNet checkpoint/YAML. | `predictions.csv` with `fragnet_log_P_upconversion`, success/failure status and reasons; `prediction_manifest.json`. |
+| Map — `map_chemical_space.py` | Prediction CSV with `smiles` and `fragnet_log_P_upconversion`; `reference.pkl` + `reference.html`. | `space/candidates_in_space.csv` (coordinates, clusters and distances), `candidates_in_space.html`, mapping summary and rejections if any. |
+| Pretrain (optional) — `pretrain_generator.py` | `pretrain.ini`, existing NMO `translated_smiles.smi` and `Voc_adapted`. | New `prior.pt` and validity/atom-count diagnostics in the configured output directory. |
+
+FragNet inputs are under `fragnet_config_details/`: `fragnet_selected.yaml`,
+`experiment/ft.pt`, `graph_data/` and `splits/`. Training settings, history,
+metrics and split predictions remain there; `experiment/last.pt` is the training
+checkpoint. The existing prior is in `nmo_fragnet_generation/generator_prior/`.
+The vocabulary and pretraining sequences are in
+`NMO_source_code/genetic_GFN_framework/data/experiments/`.
+Reference inputs are in `chemical_space_reference/`; `dim.py` and `analyse.py`
+construct them from `smiles_runs/` and `ggs_runs/`.
 
 Code is on GitHub; required checkpoints, graph datasets and reference files are
 stored on SCRTP. The batch checks five saved/rebuilt graph predictions against
@@ -136,13 +142,11 @@ Set `SEED` and `CALLS` near the top of the batch script. Defaults are **123** an
 seeds use the same prior and predictor. FragNet's graph-construction seed remains
 separate in its YAML. Software and hardware also affect reproducibility.
 
-All outputs are under `nmo_fragnet_generation/runs/seed123_jobJOBID/`:
-
-| Location | Contents |
-| --- | --- |
-| `run.log` | Combined Slurm output/errors and verification results. |
-| `generation/` | `full_history.csv`, `fragnet_predictions.csv`, `agent_final.pt`, `nmo_fragnet.ini`, working `train.py`, `run_summary.json` and `fragnet_worker.log`. |
-| `space/` | `candidates_in_space.csv`, `candidates_in_space.html`, `projection_summary.json`; `projection_rejected.csv` only if needed. |
+The batch (`generate_and_map.sbatch`) runs verification, generation and mapping.
+Its outputs are grouped under `nmo_fragnet_generation/runs/seed123_jobJOBID/`,
+with `generation/`, `space/` and combined Slurm log `run.log`. Small supporting
+files record the exact configuration/working script, model hashes, run and
+projection summaries, and predictor diagnostics (`fragnet_worker.log`).
 
 Mapping removes duplicate candidate SMILES. No duplicate HDF5 records or legacy
 analysis plots are written. Conformers stay in memory unless `--save-conformers`
