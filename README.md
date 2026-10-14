@@ -91,28 +91,17 @@ seven clustering dimensions. Reference properties are xTB-derived; candidate
 properties are predictions. Assignment distances help identify distant candidates
 but are not calibrated uncertainty estimates.
 
-For high-performing molecules, the analysis should address:
+`fragnet_analysis/embeddings.py` produces fragment-masking reports, with
+contribution defined as `prediction(full) − prediction(masked)`. Positive values
+support the predicted log-property. Signed fragment-connection contributions are
+included where available; attention-only scores do not indicate direction.
 
-- **Which fragments support the prediction?** `fragnet_analysis/embeddings.py`
-  produces an HTML report of signed masking contributions:
-  `prediction(full) − prediction(masked)`. Positive values indicate features
-  supporting the model's predicted log-property. Fragment-connection contributions
-  are included where supported; attention-only scores do not give a direction.
-- **Are these recurring chemical patterns?** Compare fragment contributions across
-  top candidates and lower-performing molecules, accounting for cluster and
-  scaffold similarity. Contributions explain the predicted property, not the
-  separate SA/rotatable-bond terms in fitness.
-- **How familiar are the candidates to the model?**
-  `fragnet_analysis/neighbours.py` compares Morgan fingerprints or supplied
-  embeddings. These tools remain exploratory: the previous similarity analyses
-  did not provide a reliable guide to prediction error. Developing a useful
-  measure is an open next step.
-
-The report script currently reads saved train/validation/test splits; explaining
-new generation outputs requires adapting its input handling and checking that its
-unmasked predictions match the generation predictor. Explainability is a separate
-analysis step, not an automatic pilot output. Masking reveals model sensitivity,
-not proof of a causal chemical mechanism; proposed motifs need xTB/DFT validation.
+The report currently reads saved dataset splits. Applying it to generated
+candidates requires adapting its inputs and checking that unmasked predictions
+match the generation predictor. It is a separate analysis step; contributions
+explain model behaviour, not the SA/rotatable-bond penalties or a proven chemical
+mechanism. `fragnet_analysis/neighbours.py` and `tanimoto_similarity/` retain the
+previous similarity tools and results; their limitations are noted below.
 
 ## Files and running
 
