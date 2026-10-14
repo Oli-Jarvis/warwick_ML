@@ -199,6 +199,15 @@ conda env create -f environment-fragnet.yml
 
 ## Next steps
 
+### Validate generated molecules
+
+Check generated structures against the predictor training set and the reference,
+using canonical molecular identities with explicit stereochemistry handling;
+assess scaffold novelty separately. Recalculate properties for selected candidates
+with xTB to measure prediction errors and ranking agreement, including high-scoring
+molecules. DFT fine-tuning aims to improve agreement with DFT-derived properties;
+any improvement must be demonstrated on independent DFT data.
+
 ### Similarity and prediction reliability
 
 Previous trials of Morgan-fingerprint Tanimoto similarity, cosine similarity of
@@ -225,7 +234,7 @@ DFT predictions require a reference with a consistent property basis because the
 property enters clustering. Descriptor PCA models can remain fixed, but DFT
 values must not simply replace xTB values in the existing cluster assignment.
 
-Local checks cover unchanged NMO calculations/configuration, synthetic mapping,
-filtering and output cleanup. The five-molecule SCRTP prediction check passed
-(maximum difference ≈ 1.9 × 10⁻⁶); full generation/mapping and explainability on
-new candidates remain to be validated.
+The SCRTP pilot completed generation and mapping: 256 oracle evaluations,
+39 failures and 216 unique successfully mapped molecules. The saved/rebuilt
+five-molecule prediction check also passed. This confirms end-to-end execution;
+it does not establish molecular novelty or prediction accuracy.
