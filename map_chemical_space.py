@@ -2,6 +2,7 @@
 """Map scored molecules onto the fixed dim4/analyse4 reference without refitting."""
 
 import argparse
+import contextlib
 import csv
 import hashlib
 import importlib.metadata
@@ -76,7 +77,7 @@ def read_candidates(path, property_column, keep_duplicates=False):
     return accepted.reset_index(drop=True), errors, len(frame), duplicates
 
 
-def describe(frame, output, bundle):
+def describe(frame, output, bundle, save_conformers=False):
     import numpy as np
     from rdkit import Chem
     from rdkit.Chem import AllChem
@@ -85,7 +86,8 @@ def describe(frame, output, bundle):
     from dscribe.descriptors import SOAP
 
     molecules, systems, selected, errors = [], [], [], []
-    with Chem.SDWriter(str(output / "generated_conformers.sdf")) as writer:
+    with (Chem.SDWriter(str(output / "generated_conformers.sdf")) if save_conformers
+          else contextlib.nullcontext()) as writer:
         for index, row in frame.iterrows():
             try:
                 if not isinstance(row.smiles, str) or not row.smiles.strip():
@@ -114,7 +116,8 @@ def describe(frame, output, bundle):
                 errors.append(dict(row=int(row["_row"]), smiles=row.smiles, error=str(exc)))
                 continue
             mol.SetIntProp("source_row", int(row["_row"]))
-            writer.write(mol)
+            if writer is not None:
+                writer.write(mol)
             molecules.append(mol)
             systems.append(system)
             selected.append(index)
@@ -189,6 +192,7 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--property-column", default="fragnet_log_P_upconversion")
     parser.add_argument("--keep-duplicates", action="store_true")
+    parser.add_argument("--save-conformers", action="store_true")
     args = parser.parse_args()
     if args.output.exists() and any(args.output.iterdir()):
         raise FileExistsError(f"Choose a new output directory: {args.output}")
@@ -197,11 +201,12 @@ def main():
     bundle = load_reference(args.reference)
     frame, errors, total, duplicates = read_candidates(args.input, args.property_column, args.keep_duplicates)
     args.output.mkdir(parents=True, exist_ok=True)
-    described, descriptor_errors = describe(frame, args.output, bundle)
+    described, descriptor_errors = describe(frame, args.output, bundle, args.save_conformers)
     errors.extend(descriptor_errors)
-    pd.DataFrame(errors, columns=["row", "smiles", "error"]).to_csv(
-        args.output / "projection_rejected.csv", index=False
-    )
+    if errors:
+        pd.DataFrame(errors, columns=["row", "smiles", "error"]).to_csv(
+            args.output / "projection_rejected.csv", index=False
+        )
     if described is None:
         raise ValueError("No candidates could be projected; see projection_rejected.csv")
     clean, bonding, structural = described

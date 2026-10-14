@@ -6,26 +6,27 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G
 #SBATCH --time=24:00:00
-#SBATCH --output=fragnet-pilot-%j.log
-#SBATCH --error=fragnet-pilot-%j.err
+#SBATCH --output=fragnet-%j.log
+#SBATCH --error=fragnet-%j.log
 
 set -eo pipefail
-
 source /software/easybuild/software/Miniconda3/4.12.0/etc/profile.d/conda.sh
 
 ROOT=/storage/msszkb_grp/msshfg
+SEED=123
+CALLS=256
 MODEL="$ROOT/fragnet_config_details"
 REFERENCE="$ROOT/chemical_space_reference"
 WORK="$ROOT/nmo_fragnet_generation"
 FRAGNET_SOURCE="$ROOT/fragnet_source_code"
-RUN_NAME="pilot_seed123_${SLURM_JOB_ID}"
+RUN="$WORK/runs/seed${SEED}_job${SLURM_JOB_ID}"
+mkdir -p "$WORK/runs"
+mkdir "$RUN"
+mv "$SLURM_SUBMIT_DIR/fragnet-${SLURM_JOB_ID}.log" "$RUN/run.log"
 
-if [[ ! -f "$FRAGNET_SOURCE/fragnet/dataset/data.py" ]]; then
-    printf 'FragNet source not found at %s; set FRAGNET_SOURCE in this script.\n' "$FRAGNET_SOURCE" >&2
-    exit 1
-fi
 for required in "$ROOT/generate_molecules.py" "$ROOT/map_chemical_space.py" \
                 "$ROOT/initial_predictor_training/run_fragnet.py" \
+                "$FRAGNET_SOURCE/fragnet/dataset/data.py" \
                 "$MODEL/experiment/ft.pt" "$MODEL/graph_data/train.pkl" \
                 "$MODEL/experiment/train_predictions.csv" "$MODEL/fragnet_selected.yaml" \
                 "$REFERENCE/reference.pkl" "$REFERENCE/reference.html" \
@@ -44,26 +45,25 @@ export MKL_NUM_THREADS="$SLURM_CPUS_PER_TASK"
 export MPLBACKEND=Agg
 export CUDA_VISIBLE_DEVICES=""
 
-# 1. Check predictions against the saved training results.
+# Verify both models and the reference before generation.
 conda activate fragnet
 FRAGNET_PYTHON=$(python -c 'import sys; print(sys.executable)')
 python -u generate_molecules.py verify \
     --run-dir "$MODEL" --fragnet-root "$FRAGNET_SOURCE" \
     --threads "$SLURM_CPUS_PER_TASK" --count 5
+python -c 'import sys; from pathlib import Path; from map_chemical_space import load_reference; load_reference(Path(sys.argv[1]))' "$REFERENCE"
 
-# 2. Generate molecules using FragNet fitness.
 conda activate nmo
 python -u generate_molecules.py \
     --run-dir "$MODEL" --fragnet-root "$FRAGNET_SOURCE" \
     --fragnet-python "$FRAGNET_PYTHON" \
-    --repo "$ROOT/NMO_source_code" --work "$WORK" --name "$RUN_NAME" \
-    --calls 256 --seed 123 --threads "$SLURM_CPUS_PER_TASK" --cpu
+    --repo "$ROOT/NMO_source_code" --work "$RUN" --name generation \
+    --prior "$WORK/generator_prior/prior.pt" \
+    --calls "$CALLS" --seed "$SEED" --threads "$SLURM_CPUS_PER_TASK" --cpu
 
-# 3. Map candidates onto the saved chemical space.
 conda activate fragnet
 python -u map_chemical_space.py \
-    --input "$WORK/$RUN_NAME/unique_fragnet_candidates.csv" \
-    --reference "$REFERENCE" \
-    --output "$WORK/${RUN_NAME}_space"
+    --input "$RUN/generation/fragnet_predictions.csv" \
+    --reference "$REFERENCE" --output "$RUN/space"
 
-printf 'Completed. Plot: %s\n' "$WORK/${RUN_NAME}_space/candidates_in_space.html"
+printf 'Completed. Plot: %s\n' "$RUN/space/candidates_in_space.html"

@@ -30,7 +30,6 @@ from collections import OrderedDict
 from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parent
-SOURCE_COMMIT = "b240b788c8024c46a46bf365dc9be984fafef440"
 # Existing positive log-P reward, including SA and rotatable-bond penalties.
 FITNESS = (
     "0.25*(np.logaddexp(0.0,np.log(10.0)*"
@@ -77,6 +76,8 @@ class Predictor:
         self.checkpoint = self.run_dir / "experiment/ft.pt"
         self.checkpoint_hash = digest(self.checkpoint)
         manifest_path = self.run_dir / "run_manifest.json"
+        if not manifest_path.exists():
+            manifest_path = self.run_dir / "training_settings.json"
         if manifest_path.exists():
             manifest = json.loads(manifest_path.read_text())
             target = manifest["signature"]["target_column"]
@@ -163,6 +164,8 @@ class Predictor:
 
         path = self.run_dir / "experiment/train_predictions.csv"
         expected = pd.read_csv(path).head(count)
+        if expected.empty:
+            raise ValueError("Training predictions are empty; verification cannot run")
         with (self.run_dir / "graph_data/train.pkl").open("rb") as f:
             graphs = pickle.load(f)
         lookup = {g.smiles: g for g in graphs}
@@ -351,7 +354,6 @@ def install_runtime(client, output):
         "fragnet_log_P_upconversion",
         "prediction_ok",
         "prediction_error",
-        "checkpoint_sha256",
     ]
     with csv_path.open("w", newline="") as f:
         csv.DictWriter(f, fieldnames=fields).writeheader()
@@ -381,6 +383,8 @@ def install_runtime(client, output):
 
     # Existing NMO anchoring, validation, SA and rotatable-bond routines are kept.
     module.terahertz_workflow_handler = dispatch
+    # Predictions and failures are recorded in CSV; avoid duplicate HDF5 records.
+    module._write_candidate_metadata = lambda *args, **kwargs: None
     original_init = module.Oracle_Handler.__init__
 
     @functools.wraps(original_init)
@@ -422,7 +426,6 @@ def install_runtime(client, output):
                             ),
                             prediction_ok=bool(ok[i]),
                             prediction_error=rewards.get("failure_reasons", [""] * n)[i],
-                            checkpoint_sha256=client.info["checkpoint_sha256"],
                         )
                     )
             return rewards
@@ -505,6 +508,14 @@ def source_copy(path, framework):
     marker = '        full_history.write_memory(f"{self.log_dir}/full_history.csv")'
     # Exact indentation avoids similarly named writes in debug branches.
     text = replace_once(text, "\n" + marker + "\n", "\n" + save + "\n" + marker + "\n")
+    # Keep recovery checkpoints during the run, but omit redundant final exports.
+    for statement in (
+        'ckpt_handler.save(self.n_steps, Agent, optimizer, log_z, self.oracle_handler, experience, full_history, self.rng)',
+        'plot_full_history(f"{self.log_dir}/full_history.csv", f"{self.log_dir}")',
+        'analyze_final_history(f"{self.log_dir}/full_history.csv", 10, self.log_dir)',
+        'experience.write_memory(f"{experience_dir}/experience_memory_final.csv")',
+    ):
+        text = replace_once(text, "\n        " + statement + "\n", "\n")
     prefix = (
         "# Generated working copy. Original source: " + str(path) + "\n"
         "import sys as _bridge_sys\n_bridge_sys.path.insert(0, " + repr(str(framework)) + ")\n"
@@ -697,8 +708,7 @@ def generate(args):
     try:
         module = install_runtime(client, output)
         manifest = dict(
-            source_commit=SOURCE_COMMIT,
-            mode="run",
+            status="running",
             nmo_python=sys.executable,
             fragnet_python=str(args.fragnet_python),
             **client.info,
@@ -714,9 +724,18 @@ def generate(args):
             working_source_sha256=digest(script),
             seed=args.seed,
         )
-        (output / "bridge_manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+        summary_path = output / "run_summary.json"
+        summary_path.write_text(json.dumps(manifest, indent=2) + "\n")
         sys.argv = [str(script), str(config_path), "--seed", str(args.seed), "--gpu", "0"]
-        runpy.run_path(str(script), run_name="__main__")
+        try:
+            runpy.run_path(str(script), run_name="__main__")
+        except SystemExit as exc:
+            raise RuntimeError("NMO exited before completion; recovery files retained") from exc
+    except BaseException:
+        if "manifest" in locals():
+            manifest["status"] = "failed_or_interrupted"
+            summary_path.write_text(json.dumps(manifest, indent=2) + "\n")
+        raise
     finally:
         client.close()
     for name in ("full_history.csv", "agent_final.pt"):
@@ -728,12 +747,8 @@ def generate(args):
     for row in rows:
         if row["prediction_ok"].lower() in ("true", "1"):
             accepted.setdefault(row["smiles"], row)
-    with (output / "unique_fragnet_candidates.csv").open("w", newline="") as handle:
-        fields = list(rows[0]) if rows else ["smiles", "fragnet_log_P_upconversion", "prediction_ok"]
-        writer = csv.DictWriter(handle, fieldnames=fields)
-        writer.writeheader()
-        writer.writerows(accepted.values())
     summary = dict(
+        status="complete",
         oracle_evaluations=len(rows),
         prediction_failures=sum(row["prediction_ok"].lower() not in ("true", "1") for row in rows),
         unique_successful_molecules=len(accepted),
@@ -742,7 +757,13 @@ def generate(args):
         length_area_penalties=False,
         note="Novelty relative to training/reference has not been established; mapping is a separate step.",
     )
-    (output / "generation_summary.json").write_text(json.dumps(summary, indent=2) + "\n")
+    manifest.update(summary)
+    summary_path.write_text(json.dumps(manifest, indent=2) + "\n")
+    for name in ("checkpoint.pt", "experience.pt", "full_history.pt"):
+        (output / name).unlink(missing_ok=True)
+    memory_dir = output / "experience_memory"
+    if memory_dir.is_dir() and not any(memory_dir.iterdir()):
+        memory_dir.rmdir()
     print(json.dumps(summary, indent=2))
 
 
@@ -775,8 +796,10 @@ def main():
     parser.add_argument("--timeout", type=float, default=1800)
     parser.add_argument("--cpu", action="store_true")
     args = parser.parse_args(argv)
-    if min(args.calls, args.steps, args.threads) < 1 or args.timeout <= 0 or args.seed < 0:
-        parser.error("calls, steps, threads and timeout must be positive; seed must be nonnegative")
+    if min(args.calls, args.steps, args.threads) < 1 or not math.isfinite(args.timeout) or args.timeout <= 0:
+        parser.error("calls, steps, threads and timeout must be positive and finite")
+    if not 0 <= args.seed < 2**32:
+        parser.error("seed must be between 0 and 2**32 - 1")
     if Path(args.name).name != args.name or args.name in (
         "",
         ".",

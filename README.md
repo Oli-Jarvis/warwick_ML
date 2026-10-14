@@ -221,23 +221,41 @@ sbatch generate_and_map.sbatch
 
 This CPU pilot compares predictions for five saved graphs and five graphs rebuilt
 from the same molecules against the stored training predictions. It then runs
-with seed 123 and a budget of 256 evaluations counted by NMO's oracle. Mapping runs in `fragnet` and
-stops if its package versions differ from the reference. Each run name includes
-the job ID.
+with seed 123 and a budget of 256 evaluations counted by NMO's oracle. The reference and its package versions are checked before generation. Mapping
+runs in `fragnet`. Change `CALLS` in the batch script to adjust the budget. Each
+run name includes the seed and job ID.
 
 ### Run seed
 
 `--seed 123` is an arbitrary default; valid generation seeds are integers from
 0 to `2**32 - 1`. Use different seeds for independent generation runs, retaining
-the same prior and predictor checkpoint. Update `RUN_NAME` in the batch script
-to match the chosen seed. The predictor's graph-construction seed is taken
+the same prior and predictor checkpoint. Set `SEED` in the batch script; the output directory name uses it automatically. The predictor's graph-construction seed is taken
 separately from `fragnet_selected.yaml`. Reproducibility also depends on the
 software, hardware and execution configuration.
 
-| Output under `nmo_fragnet_generation/` | Contents |
+Each job writes to `nmo_fragnet_generation/runs/seed123_jobJOBID/`:
+
+| Output | Contents |
 | --- | --- |
-| `pilot_seed123_JOBID/` | `full_history.csv`, adapted generator `agent_final.pt`, `fragnet_predictions.csv`, `unique_fragnet_candidates.csv`, configuration, logs and audit summaries. |
-| `pilot_seed123_JOBID_space/` | `candidates_in_space.html`, `candidates_in_space.csv`, generated conformers, rejected rows and projection summary. |
+| `run.log` | Combined Slurm output and errors, including verification results. |
+| `generation/full_history.csv` | NMO search history and fitness values. |
+| `generation/fragnet_predictions.csv` | Predictions, failures and oracle-call numbers; also the mapping input. |
+| `generation/agent_final.pt` | Final generator parameters. |
+| `generation/nmo_fragnet.ini`, `train.py` | Exact generation configuration and working NMO script. |
+| `generation/run_summary.json` | Run status, counts, settings and source/model hashes. |
+| `generation/fragnet_worker.log` | Predictor-process diagnostics. |
+| `space/candidates_in_space.csv`, `candidates_in_space.html` | Unique successful candidates, assigned clusters and an interactive reference overlay. |
+| `space/projection_summary.json` | Mapping counts and reference identity. |
+| `space/projection_rejected.csv` | Written only when molecules are rejected during mapping. |
+
+The run reuses existing models and reference files. It omits duplicate HDF5 records,
+legacy analysis plots and a second candidate CSV. Conformers are calculated in
+memory; add `--save-conformers` to the mapping command to retain an SDF.
+The HTML embeds the reference plot and Plotly so it can be opened offline; it and
+the final generator checkpoint are likely to be the largest outputs.
+Recovery checkpoints are retained after an interrupted run and removed after
+successful generation; `agent_final.pt` contains model parameters, not the full
+optimiser/replay state. Automatic resumption is not provided by this launcher.
 
 Independent scoring and projection, using the `fragnet` environment and a CSV
 with a `smiles` column:
@@ -252,8 +270,8 @@ python map_chemical_space.py --input predictions_new/predictions.csv --output ma
 The workflow calls NMO's search implementation and replaces the property
 calculation with FragNet predictions. It does not replace NMO's search algorithm;
 the workflow makes a working copy of the generation script for each run, with
-changes that skip empty batches, respect the evaluation budget and save the final
-checkpoint. The original NMO source files are retained.
+changes that skip empty batches, respect the evaluation budget, save the final
+checkpoint and omit redundant final exports. The original NMO source files are retained.
 
 FragNet loads `fragnet_config_details/experiment/ft.pt` using the architecture in
 `fragnet_config_details/fragnet_selected.yaml`.
@@ -284,6 +302,8 @@ After checking a new prior, supply its checkpoint path with generation's `--prio
 option. Keep the supplied
 prior and its matching manifest together.
 
-Local checks covered script syntax, reuse of the training functions, the changes
-to the working NMO script and mapping with synthetic data. Full inference, descriptor generation and Slurm execution
-still require validation with the SCRTP environments and saved data.
+Local checks cover syntax, unchanged NMO calculations/configuration, synthetic
+PCA/cluster mapping, candidate filtering and checkpoint cleanup on successful
+versus interrupted runs. Full model inference, descriptor generation and Slurm
+execution still require the first SCRTP run with the saved data.
+
