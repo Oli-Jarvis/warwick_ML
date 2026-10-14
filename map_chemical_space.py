@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parent
 
 def load_reference(directory):
     import numpy as np
+    from packaging.version import Version
     from rdkit import rdBase
     import sklearn
 
@@ -26,7 +27,9 @@ def load_reference(directory):
     versions = dict(
         rdkit=rdBase.rdkitVersion, sklearn=sklearn.__version__, dscribe=importlib.metadata.version("dscribe")
     )
-    if versions != bundle["versions"]:
+    if {k: Version(v) for k, v in versions.items()} != {
+        k: Version(v) for k, v in bundle["versions"].items()
+    }:
         raise RuntimeError(f'Use the reference environment: expected {bundle["versions"]}, found {versions}')
     expected = dict(soap_r_cut=5.0, soap_n_max=4, soap_l_max=3, soap_average="inner")
     metadata = bundle["pca_provenance"]["descriptor_metadata"]
