@@ -26,9 +26,8 @@ the search towards a particular cluster.
 | `generate_and_map.sbatch` | Slurm job: verify predictions, generate molecules, then map them. |
 | `nmo_fragnet_generation/pretrain.ini` | Generator-pretraining settings and output location. |
 
-Keep these Python entry points and the Slurm file at the project root, alongside
-the directories below. Python defaults follow this location. The Slurm file and
-pretraining INI use `/storage/msszkb_grp/msshfg`; set this path for your installation.
+Entry points reside at the project root. Python defaults resolve relative to it;
+set the project path in the Slurm file and pretraining INI for your installation.
 
 ## Source code and predictor training
 
@@ -98,91 +97,43 @@ pretraining again.
 | `fragnet_analysis/neighbours.py` | Finds similar molecules using embedding cosine similarity or Morgan-fingerprint Tanimoto similarity, depending on the input. |
 | `fragnet_analysis/tanimoto_similarity/` | Tables and plots relating predictor error to molecular similarity. |
 
-Optional analysis tools are separate from generation and mapping. Supply their
-input/output paths explicitly; inspect `--help` before running them.
+Analysis tools are independent of the generation/mapping pipeline and accept
+explicit input/output paths.
 
-## Python environments
+## Dependencies and reproducibility
 
-A Conda environment is a separate Python installation with its own packages.
-`conda activate NAME` selects that environment's Python and libraries. The names
-`nmo` and `fragnet` identify the two environments used by the batch script; they
-are not model files and are not created by cloning this repository.
-
-| Environment | When to use it | Key software required by the code |
+| Environment | Tasks | Principal dependencies |
 | --- | --- | --- |
-| `nmo` | Generation and optional generator pretraining. | The group's NMO dependencies, including PyTorch, RDKit, NumPy, pandas, Matplotlib, tqdm, GGS and group-selfies. The entry points locate NMO/GGS code in `NMO_source_code/`. |
-| `fragnet` | FragNet training, verification, standalone prediction, the prediction worker, and mapping in the supplied batch job. | PyTorch, PyTorch Geometric, torch-scatter, RDKit, NumPy, pandas, PyYAML, NetworkX, SciPy, scikit-learn, LMDB and the code in `fragnet_source_code/`. Mapping additionally uses ASE, DScribe and Plotly. |
+| `nmo` | Generation and generator pretraining. | NMO dependencies, including PyTorch, RDKit, NumPy, pandas, Matplotlib, tqdm, GGS and group-selfies. |
+| `fragnet` | Predictor training, verification, prediction and mapping. | PyTorch, PyTorch Geometric, torch-scatter, RDKit, NumPy, pandas, PyYAML, NetworkX, SciPy, scikit-learn and LMDB. Mapping also requires ASE, DScribe and Plotly. |
 
-These are the main dependencies, not an export of every installed package.
-To inspect the actual installations and versions on Warwick:
+Generation launches a persistent prediction worker using the `fragnet` Python
+executable while NMO runs in `nmo`. The Slurm script handles environment selection.
+Mapping enforces the RDKit, scikit-learn and DScribe versions saved in the reference.
 
-```bash
-conda list -n nmo
-conda list -n fragnet
-```
+### Environment specifications
 
-During generation, NMO runs in `nmo` and the script starts a persistent FragNet
-worker using the Python executable from `fragnet`. This keeps their dependencies
-separate. The Slurm script activates the environments automatically; for manual
-prediction/mapping use `conda activate fragnet`, and for pretraining use
-`conda activate nmo`. Optional analysis tools need the packages used by that tool.
-
-Mapping requires the RDKit, scikit-learn and DScribe versions recorded in the
-saved reference bundle. Reproduce the working environments for another machine
-rather than assuming that arbitrary package versions will be compatible.
-
-### Share and recreate the working environments
-
-For group members using Warwick's Linux system, share exports of the tested
-`nmo` and `fragnet` environments. Each member creates their own copies.
-The exports record package versions, including pip packages where detected;
-they do not contain checkpoints, data or the project source directories.
-
-**Maintainer: export once from the working Warwick installation.**
+Export the working Warwick installations and commit the reviewed YAML files:
 
 ```bash
-cd /storage/msszkb_grp/msshfg
 conda env export -n nmo | sed '/^prefix:/d' > environment-nmo.yml
 conda env export -n fragnet | sed '/^prefix:/d' > environment-fragnet.yml
 ```
 
-Review both YAML files before adding them to GitHub. Removing `prefix:` avoids
-using the maintainer's environment location. Also replace any account-specific
-paths, local `file://` entries or editable-install paths with the member's source
-location and document any required local installation. Preserve package versions,
-channels and necessary pip packages. Test the exports in a separate installation
-before calling them ready for the group; the YAML files still need to be exported
-from Warwick and checked.
+Retain package versions, channels and pip dependencies. Replace account-specific
+local/editable-install paths with the appropriate source locations and test
+recreation before distributing the specifications. These exports target the
+Warwick Linux platform; other platforms may require different builds.
 
-**Group member: create the environments from the shared YAML files.**
-
-From the project checkout, with Conda available:
+Recreate from the project checkout:
 
 ```bash
-source /software/easybuild/software/Miniconda3/4.12.0/etc/profile.d/conda.sh
 conda env create -f environment-nmo.yml
 conda env create -f environment-fragnet.yml
 ```
 
-These commands expect the names `nmo` and `fragnet` to be available in your account.
-The full exports target the working Warwick Linux setup; other operating systems
-or architectures may need adjusted package builds. Use the project's source code
-and shared data paths alongside these environments.
-
-Before a generation job, verify the recreated predictor environment:
-
-```bash
-conda activate fragnet
-python generate_molecules.py verify --run-dir /storage/msszkb_grp/msshfg/fragnet_config_details --fragnet-root ./fragnet_source_code --count 5
-```
-
-This requires access to the saved checkpoint, training graphs and training
-predictions. The mapping step also checks its package versions against the
-reference bundle. The batch job performs prediction verification again before
-starting generation. It activates both environments as needed; manual commands
-use the activation instructions above.
-
-Conda reference: [Exporting and creating environments](https://docs.conda.io/projects/conda/en/stable/user-guide/tasks/manage-environments.html).
+The YAML files still need exporting and validation on Warwick. Checkpoints,
+graph datasets and reference bundles are distributed separately from the environments.
 
 ## Run on Warwick
 
@@ -199,30 +150,24 @@ with seed 123 and at most 256 oracle evaluations. Mapping runs in `fragnet` and
 stops if its package versions differ from the reference. Each run name includes
 the Slurm job ID to keep outputs separate.
 
-### Choosing a seed
+### Run seed
 
-A random seed sets the starting state of the random-number generators. **123 is
-an arbitrary default**, not a preferred molecule, cluster or scientifically
-optimised value. Other integers from 0 to 2**32 - 1 can be used, such as 0, 1 or 42.
-Keeping the seed and setup fixed helps reproduce a run; changing the seed samples
-a different search. Exact reproducibility can also depend on software, hardware
-and parallel execution.
-
-To change the generation seed, edit `--seed 123` in `generate_and_map.sbatch` and
-update its `RUN_NAME` label to match. For example, use `--seed 42` with
-`RUN_NAME="pilot_seed42_${SLURM_JOB_ID}"`. This reuses the same prior and FragNet
-checkpoint. The predictor's graph-construction seed is read separately from
-`fragnet_selected.yaml`.
+`--seed 123` is an arbitrary default; valid generation seeds are integers from
+0 to 2**32 - 1. Use different seeds for independent search replicates, retaining
+the same prior and predictor checkpoint. Update `RUN_NAME` in the batch script
+to match the chosen seed. The predictor's graph-construction seed is taken
+separately from `fragnet_selected.yaml`. Reproducibility also depends on the
+software, hardware and execution configuration.
 
 | Output under `nmo_fragnet_generation/` | Contents |
 | --- | --- |
 | `pilot_seed123_JOBID/` | `full_history.csv`, adapted generator `agent_final.pt`, `fragnet_predictions.csv`, `unique_fragnet_candidates.csv`, configuration, logs and audit summaries. |
 | `pilot_seed123_JOBID_space/` | `candidates_in_space.html`, `candidates_in_space.csv`, generated conformers, rejected rows and projection summary. |
 
-To score a separate CSV containing a `smiles` column, choose new output directories:
+Independent scoring and projection, using the `fragnet` environment and a CSV
+with a `smiles` column:
 
 ```bash
-conda activate fragnet
 python generate_molecules.py predict --input molecules.csv --output predictions_new
 python map_chemical_space.py --input predictions_new/predictions.csv --output mapped_new
 ```
@@ -247,10 +192,9 @@ alone do not establish molecular novelty or prediction accuracy.
 
 ## Optional generator pretraining
 
-Normal runs do not require this step:
+For deliberate retraining, using the `nmo` environment:
 
 ```bash
-conda activate nmo
 python pretrain_generator.py nmo_fragnet_generation/pretrain.ini --seed 123
 ```
 
