@@ -16,11 +16,65 @@ The supplied models and reference are already prepared. A normal generation run
 reuses them. Generation and mapping are separate steps; mapping does not guide
 the search towards a particular cluster.
 
+## Scientific workflow
+
+### How is the generator pretrained?
+
+The supplied **prior** is a three-layer RNN with hidden size 512, pretrained on
+the molecular sequences in `translated_smiles.smi` using the matching
+`Voc_adapted` vocabulary. It learns to predict successive tokens in these
+sequences by minimising their mean negative log-likelihood. This learns the
+sequence distribution of the training molecules; no upconversion labels or
+FragNet predictions enter this pretraining loss.
+
+The supplied setup uses six epochs, batch size 128, initial Adam learning rate
+0.0005 and maximum sequence length 140, with masking and descriptor prediction
+disabled. An **epoch** is one complete pass through the training dataset.
+The saved parameters are in `generator_prior/prior.pt` under
+`nmo_fragnet_generation/`. Each search starts from this prior and saves its
+updated generator separately as `agent_final.pt`. Changing the search seed or
+replacing the property predictor does not itself require a new prior.
+
+### What is being optimised?
+
+FragNet is trained to minimise mean squared error against xTB-derived
+`log_P_upconversion`. During generation its weights remain fixed: NMO updates
+the generator and performs genetic search using FragNet predictions as part of
+the molecular fitness.
+
+For a successfully scored molecule, let $y$ be the predicted
+`log_P_upconversion`, $s$ the synthetic-accessibility score (SA), and $r$
+the number of rotatable bonds. The implemented fitness is
+
+$$
+F = \frac{1}{4}\log_{10}(1+10^c)
+    \left(\frac{10-s}{9}\right)^2
+    \frac{1}{1+\exp[2(r-3.5)]},
+\qquad c=\operatorname{clip}(y+5,-50,80).
+$$
+
+The search favours higher predicted upconversion, lower SA scores and fewer
+rotatable bonds. The logarithmic term gives a smooth positive reward; clipping
+bounds extreme predictions. There is no molecular-length or surface-area
+penalty. Failed predictions receive zero fitness and remain marked as failures.
+
+NMO retains its molecular validation and anchoring rules. FragNet predicts the
+logarithmic property directly; it is passed to the reward transformation above
+without first taking another logarithm. Its graph
+construction and stereochemistry handling match predictor training. Candidate
+geometries used for graphs and descriptors are generated with RDKit; this run
+does not evaluate candidate upconversion with xTB or DFT.
+
+The resulting fitness is a search objective, not a measured physical property.
+High-scoring candidates still need independent property calculations and checks
+against the training/reference molecules to establish accuracy and novelty.
+Cluster membership is used for analysis after generation, not as a search reward.
+
 ## Main files
 
 | File | Purpose |
 | --- | --- |
-| `generate_molecules.py` | Runs generation using FragNet predictions in the fitness calculation. Also supports independent `predict` and `verify` commands. Reuses graph-construction and model-loading functions from `initial_predictor_training/run_fragnet.py` without starting predictor training. |
+| `generate_molecules.py` | Runs generation using FragNet predictions in the fitness calculation. Also supports independent `predict` and `verify` commands. |
 | `map_chemical_space.py` | Maps scored candidates onto the saved reference and produces a plot and CSV. |
 | `pretrain_generator.py` | Runs NMO generator pretraining. Use only to train a new starting generator. |
 | `generate_and_map.sbatch` | Slurm job: verify predictions, generate molecules, then map them. |
@@ -31,20 +85,9 @@ Keep the main scripts in the top-level project directory, alongside
 inputs relative to their own location. If you move the project, update the paths
 in `generate_and_map.sbatch` and `nmo_fragnet_generation/pretrain.ini`.
 
-## Source code and predictor training
+## Saved predictor files
 
-| Path | Purpose |
-| --- | --- |
-| `NMO_source_code/` | Source code for molecular generation, genetic search and molecular processing. |
-| `NMO_source_code/genetic_GFN_framework/train.py` | Generator optimisation and genetic-search loop. |
-| `NMO_source_code/genetic_GFN_framework/pretrain.py` | Learns a generator prior from molecular sequences. |
-| `NMO_source_code/genetic_GFN_framework/data/experiments/Voc_adapted` | Generator tokens in the exact order expected by the saved prior. |
-| `NMO_source_code/genetic_GFN_framework/data/experiments/translated_smiles.smi` | Molecular sequences used for generator pretraining. |
-| `fragnet_source_code/` | FragNet architecture, molecular graph construction and feature definitions. |
-| `initial_predictor_training/run_fragnet.py` | Prepares data, builds graphs, trains/evaluates FragNet and provides the graph-construction and model-loading functions used for prediction. |
-| `initial_predictor_training/run_fragnet.sh` | Slurm submission script for predictor training. Set its script, source and data paths before submitting. |
-
-### `fragnet_config_details/`
+All paths in this table are relative to `fragnet_config_details/`.
 
 | File or directory | Purpose |
 | --- | --- |
@@ -80,7 +123,6 @@ prevent overlap between training, validation and test sets. Each canonical
 isomeric SMILES receives the mean of its distinct observed target values.
 Graphs retain specified tetrahedral and double-bond stereochemistry.
 
-An **epoch** is one complete pass through the training dataset.
 The checkpoint at **epoch 100** had the lowest validation MSE. Test data were
 not used for selection. Results from `fragnet_config_details/experiment/regression_metrics.json`:
 
@@ -145,20 +187,41 @@ All paths in this table are relative to `chemical_space_reference/`.
 | `reference.html` | Interactive reference plot used as the background for candidate overlays. |
 | `reference.json` | Reference counts, settings and records of the data and methods used. |
 
-The reference contains 68,268 rows: 36,754 SMILES and 31,514 GGS, with 20 final
-clusters. Cluster assignment uses three bonding principal components (PCs), three structural
-PCs and `log_P_upconversion`, centred and scaled as recorded in the reference.
-Each candidate receives the final cluster label of its nearest BIRCH subcluster.
-The plot displays bonding PC1, structural PC1 and `log_P_upconversion`.
-Mapping reuses the saved PCA models and cluster labels without recalculating them.
+### When are PCA and clustering applied?
+
+**PCA is fitted before new candidates are added.** The reference contains 68,268
+rows: 36,754 from SMILES runs and 31,514 from GGS runs. Bonding descriptors
+characterise molecular connectivity and chemistry; averaged SOAP descriptors
+characterise local three-dimensional atomic environments. Each descriptor set
+has its own fitted preprocessing and PCA model.
+
+Reference construction then combines three bonding PCs, three structural PCs
+and `log_P_upconversion`. These seven features are centred and scaled before
+BIRCH and agglomerative clustering produce the 20 final reference clusters.
+The property is added after descriptor PCA; it is not an input to either PCA fit.
+
+**After generation**, each candidate's descriptors are calculated using the same
+definitions, conformer-generation settings and element handling as the reference.
+For chemical-space mapping this includes removing literal `[Au]` from SMILES.
+Missing bonding-descriptor values use the saved reference medians, and the saved
+descriptor selection, scaling and PCA models are applied with `transform`.
+
+The candidate's predicted property is appended to its six PCA coordinates,
+and the saved seven-feature scaling is applied. It receives the final cluster
+label of its nearest BIRCH subcluster. Neither the PCA axes nor reference cluster
+boundaries are refitted, so adding candidates does not move existing points.
+
+The HTML shows bonding PC1, structural PC1 and the logarithmic property.
+It is a three-dimensional view of a seven-dimensional clustering calculation:
+points close together in the plot can differ in the other PCs. Candidate
+property values are FragNet predictions; reference values retain their xTB basis.
+Cluster assignment always selects an existing cluster, even for a distant
+candidate; the exported distances help flag candidates outside well-covered
+regions, but are not calibrated prediction uncertainties.
 
 ## Saved generator and analysis tools
 
-A **prior** is the pretrained generator used as the starting point for a search.
-`prior.pt` contains its learned parameters. Each generation run loads this file
-and saves the generator parameters updated during that search separately as `agent_final.pt`; the starting
-prior is retained. A new search or a different random seed does not require
-pretraining again.
+The existing prior and its matching vocabulary are reused for each generation run.
 
 | Path | Purpose |
 | --- | --- |
@@ -265,26 +328,6 @@ python generate_molecules.py predict --input molecules.csv --output predictions_
 python map_chemical_space.py --input predictions_new/predictions.csv --output mapped_new
 ```
 
-## FragNet integration
-
-The workflow calls NMO's search implementation and replaces the property
-calculation with FragNet predictions. It does not replace NMO's search algorithm;
-the workflow makes a working copy of the generation script for each run, with
-changes that skip empty batches, respect the evaluation budget, save the final
-checkpoint and omit redundant final exports. The original NMO source files are retained.
-
-FragNet loads `fragnet_config_details/experiment/ft.pt` using the architecture in
-`fragnet_config_details/fragnet_selected.yaml`.
-Molecular graph construction and stereochemistry checks use the same functions
-as predictor training. Its output is `log_P_upconversion`, used directly without
-another logarithm. The configured fitness applies SA and rotatable-bond penalties,
-with no molecular-length/area penalty. Failed predictions receive zero reward
-and remain marked as failures. Before generation starts, the prediction check compares model outputs from saved
-and rebuilt graphs with the stored training predictions.
-
-Predicted properties are not xTB measurements. Mapping and cluster assignment
-alone do not establish molecular novelty or prediction accuracy.
-
 ## Optional generator pretraining
 
 For deliberate retraining, using the `nmo` environment:
@@ -293,17 +336,16 @@ For deliberate retraining, using the `nmo` environment:
 python pretrain_generator.py nmo_fragnet_generation/pretrain.ini --seed 123
 ```
 
-The INI selects six epochs, batch size 128, learning rate 0.0005 and disabled
-masking. Output goes to `nmo_fragnet_generation/generator_prior_new`; the script stops if
+Output goes to `nmo_fragnet_generation/generator_prior_new`; the script stops if
 that directory already contains files.
-This calls the NMO pretraining routine and retains its training options and
-outputs. The wrapper does not create a `prior_manifest.json` for the new checkpoint.
+A `prior_manifest.json` is not created automatically for the new checkpoint.
 After checking a new prior, supply its checkpoint path with generation's `--prior`
 option. Keep the supplied
 prior and its matching manifest together.
 
 Local checks cover syntax, unchanged NMO calculations/configuration, synthetic
 PCA/cluster mapping, candidate filtering and checkpoint cleanup on successful
-versus interrupted runs. Full model inference, descriptor generation and Slurm
-execution still require the first SCRTP run with the saved data.
+versus interrupted runs. The SCRTP check has also reproduced saved and rebuilt graph predictions for five
+molecules (maximum difference about 1.9 × 10⁻⁶). End-to-end generation and mapping
+remain to be confirmed by the pilot run.
 
