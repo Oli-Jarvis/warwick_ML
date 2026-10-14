@@ -138,7 +138,7 @@ sbatch generate_and_map.sbatch
 ```
 
 Set `SEED` and `CALLS` near the top of the batch script. Defaults are 123 and
-256 oracle evaluations. The seed is arbitrary (0 to `232 - 1`); different
+256 oracle evaluations. The seed is arbitrary (0 to 4,294,967,295); different
 seeds use the same prior and predictor. FragNet's graph-construction seed remains
 separate in its YAML. Software and hardware also affect reproducibility.
 
