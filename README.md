@@ -113,7 +113,7 @@ Mapping enforces the RDKit, scikit-learn and DScribe versions saved in the refer
 
 ### Environment specifications
 
-Export the working Warwick installations and commit the reviewed YAML files:
+Export the working SCRTP installations and commit the reviewed YAML files:
 
 ```bash
 conda env export -n nmo | sed '/^prefix:/d' > environment-nmo.yml
@@ -122,8 +122,7 @@ conda env export -n fragnet | sed '/^prefix:/d' > environment-fragnet.yml
 
 Retain package versions, channels and pip dependencies. Replace account-specific
 local/editable-install paths with the appropriate source locations and test
-recreation before distributing the specifications. These exports target the
-Warwick Linux platform; other platforms may require different builds.
+recreation before distributing the specifications.
 
 Recreate from the project checkout:
 
@@ -132,13 +131,13 @@ conda env create -f environment-nmo.yml
 conda env create -f environment-fragnet.yml
 ```
 
-The YAML files still need exporting and validation on Warwick. Checkpoints,
+The YAML files still need exporting and validation on SCRTP. Checkpoints,
 graph datasets and reference bundles are distributed separately from the environments.
 
-## Run on Warwick
+## Run the workflow
 
-Large checkpoints, graph datasets and fitted reference bundles are kept on
-Warwick. A code-only GitHub clone is not sufficient to run the workflow.
+Required checkpoints, graph datasets and reference bundles are stored on SCRTP
+and are separate from the GitHub code checkout.
 
 ```bash
 cd /storage/msszkb_grp/msshfg
@@ -148,7 +147,7 @@ sbatch generate_and_map.sbatch
 This CPU pilot checks five stored and regenerated graph predictions, then runs
 with seed 123 and at most 256 oracle evaluations. Mapping runs in `fragnet` and
 stops if its package versions differ from the reference. Each run name includes
-the Slurm job ID to keep outputs separate.
+the job ID.
 
 ### Run seed
 
@@ -207,4 +206,4 @@ prior and its matching manifest together.
 
 Local checks cover syntax, shared-function equivalence, source patches and
 synthetic mapping. Full inference, descriptor generation and Slurm execution
-still require validation with the Warwick environments and saved data.
+still require validation with the SCRTP environments and saved data.
