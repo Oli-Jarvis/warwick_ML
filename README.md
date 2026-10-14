@@ -131,6 +131,59 @@ Mapping requires the RDKit, scikit-learn and DScribe versions recorded in the
 saved reference bundle. Reproduce the working environments for another machine
 rather than assuming that arbitrary package versions will be compatible.
 
+### Share and recreate the working environments
+
+For group members using Warwick's Linux system, share exports of the tested
+`nmo` and `fragnet` environments. Each member creates their own copies.
+The exports record package versions, including pip packages where detected;
+they do not contain checkpoints, data or the project source directories.
+
+**Maintainer: export once from the working Warwick installation.**
+
+```bash
+cd /storage/msszkb_grp/msshfg
+conda env export -n nmo | sed '/^prefix:/d' > environment-nmo.yml
+conda env export -n fragnet | sed '/^prefix:/d' > environment-fragnet.yml
+```
+
+Review both YAML files before adding them to GitHub. Removing `prefix:` avoids
+using the maintainer's environment location. Also replace any account-specific
+paths, local `file://` entries or editable-install paths with the member's source
+location and document any required local installation. Preserve package versions,
+channels and necessary pip packages. Test the exports in a separate installation
+before calling them ready for the group; the YAML files still need to be exported
+from Warwick and checked.
+
+**Group member: create the environments from the shared YAML files.**
+
+From the project checkout, with Conda available:
+
+```bash
+source /software/easybuild/software/Miniconda3/4.12.0/etc/profile.d/conda.sh
+conda env create -f environment-nmo.yml
+conda env create -f environment-fragnet.yml
+```
+
+These commands expect the names `nmo` and `fragnet` to be available in your account.
+The full exports target the working Warwick Linux setup; other operating systems
+or architectures may need adjusted package builds. Use the project's source code
+and shared data paths alongside these environments.
+
+Before a generation job, verify the recreated predictor environment:
+
+```bash
+conda activate fragnet
+python generate_molecules.py verify --run-dir /storage/msszkb_grp/msshfg/fragnet_config_details --fragnet-root ./fragnet_source_code --count 5
+```
+
+This requires access to the saved checkpoint, training graphs and training
+predictions. The mapping step also checks its package versions against the
+reference bundle. The batch job performs prediction verification again before
+starting generation. It activates both environments as needed; manual commands
+use the activation instructions above.
+
+Conda reference: [Exporting and creating environments](https://docs.conda.io/projects/conda/en/stable/user-guide/tasks/manage-environments.html).
+
 ## Run on Warwick
 
 Large checkpoints, graph datasets and fitted reference bundles are kept on
