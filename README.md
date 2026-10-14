@@ -57,6 +57,76 @@ set the project path in the Slurm file and pretraining INI for your installation
 | `experiment/regression_metrics.json` | Predictor evaluation metrics. |
 | `experiment/train_predictions.csv`, `val_predictions.csv`, `test_predictions.csv` | Predictions and targets for evaluating each split. Verification uses training predictions. |
 
+## FragNet model and performance
+
+The current predictor learns xTB-derived `log_P_upconversion` from the combined
+SMILES/GGS data. The selected configuration is recorded in
+`fragnet_config_details/fragnet_selected.yaml` and `training_settings.json`.
+
+| Hyperparameter | Selected value |
+| --- | --- |
+| Architecture | FragNet `gat2`, 4 layers, 4 attention heads, embedding dimension 128 |
+| Input features | 167 atom/fragment features; 17 bond features |
+| Regression head | `FTHead3`; configured widths 64, 1920, 1472, 2048; ReLU |
+| Dropout | 0.25 |
+| Optimiser | Adam |
+| Learning rate | 0.0007905475075930115 |
+| Batch size | 128 |
+| Objective | Mean squared error on `log_P_upconversion` |
+| Training limit | 10,000 epochs; early-stopping patience 100 |
+| Learning-rate scheduler | Disabled |
+| Seed | 123 |
+| Checkpoint selection | Lowest validation MSE; test data excluded from selection |
+
+These are the property-training settings; the YAML's separate `pretrain` block
+describes the FragNet backbone configuration. Neither is the NMO generator prior.
+
+Molecules are grouped by stereo-free identity when allocating splits.
+Targets are the mean of distinct observed values per canonical isomeric SMILES.
+Graph construction retains specified tetrahedral and double-bond stereochemistry.
+
+### Performance
+
+Final train, validation and test metrics are saved in
+`fragnet_config_details/experiment/regression_metrics.json`, with per-molecule
+predictions alongside it. Numerical results are pending inclusion from the SCRTP
+results file. Report MAE, RMSE and R² for each split, together with the selected
+epoch and evaluated sample counts; errors refer to the logarithmic target.
+
+The training curve records optimisation progress, not held-out test performance.
+The similarity analysis in `fragnet_analysis/tanimoto_similarity/` helps assess
+how prediction error changes with similarity to training molecules. Agreement
+with xTB targets does not establish accuracy against DFT.
+
+## Next steps: DFT fine-tuning
+
+The intended next stage is to fine-tune FragNet on DFT-derived targets. The xTB
+model provides a baseline and an initial checkpoint for this transfer. Since xTB
+is already inexpensive in this workflow, the main scientific motivation is to
+approximate the more costly DFT target; any practical speed advantage over direct
+xTB evaluation should be measured.
+
+1. Assemble a chemically diverse DFT dataset, including promising generated
+   candidates. Record the calculation protocol, target definition and units.
+2. Fine-tune the xTB-trained FragNet checkpoint using DFT labels. Select the
+   learning rate, freezing strategy and stopping point on validation data;
+   reserve an independent molecularly grouped DFT test set.
+3. Compare held-out DFT errors and candidate rankings against the xTB baseline,
+   and validate selected generated molecules with explicit DFT calculations.
+4. Integrate the validated predictor into generation, retaining the existing NMO
+   prior where vocabulary and model compatibility are unchanged. Changing the
+   predictor alone does not require generator pretraining.
+
+The current reference uses an xTB-derived property in both clustering and the
+display's third axis. DFT predictions must be labelled distinctly and should not
+be passed into that clustering coordinate as though they were xTB values.
+Before DFT-based mapping, choose a consistent property basis for reference and
+candidates, or construct a separate reference. Structural PCA transforms can be
+reused where descriptor definitions and preprocessing remain unchanged.
+
+DFT fine-tuning and the corresponding mapping changes are planned work; the
+supplied workflow currently uses the xTB-trained predictor.
+
 ## Chemical-space reference
 
 All paths in this table are beneath `chemical_space_reference/`.
