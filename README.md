@@ -77,6 +77,7 @@ pretraining and the NMO generator prior. Splits group stereo-free molecular
 identities; targets average distinct observed values per canonical isomeric SMILES.
 Graphs retain specified tetrahedral and double-bond stereochemistry.
 
+An **epoch** is one complete pass through the training dataset.
 The checkpoint at **epoch 100** had the lowest validation MSE. Test data were
 not used for selection. Results from `experiment/regression_metrics.json`:
 
