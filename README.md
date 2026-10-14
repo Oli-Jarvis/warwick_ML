@@ -31,12 +31,12 @@ length and area penalties are disabled. High predicted property and high fitness
 are therefore different rankings. Clustering is subsequent analysis and does
 not direct the search.
 
-The **prior** is the saved starting generator. The supplied three-layer RNN
+The prior is the saved starting generator. The supplied three-layer RNN
 (hidden size 512, maximum sequence length 140) was pretrained on
 `translated_smiles.smi` with `Voc_adapted`, minimising negative sequence
 log-likelihood without property labels. Settings: six epochs, batch size 128,
 initial Adam learning rate 0.0005, masking and descriptor prediction disabled.
-An **epoch** is one pass through the training dataset. Normal runs reuse this
+An epoch is one pass through the training dataset. Normal runs reuse this
 prior; changing the generation seed or property predictor does not itself require
 pretraining again.
 
@@ -56,7 +56,7 @@ specified tetrahedral and double-bond stereochemistry.
 | Regularisation | Dropout 0.25; no learning-rate scheduler |
 | Training | Seed 123; limit 10,000 epochs; stop after 100 epochs without validation improvement |
 
-The selected checkpoint is from **epoch 100**, with the lowest validation MSE.
+The selected checkpoint is from epoch 100, with the lowest validation MSE.
 Test data were not used for selection.
 
 | Split | Molecules | MAE | RMSE | R² | Spearman ρ |
@@ -75,7 +75,7 @@ The reference follows Joe Gilkes's clustering approach, described with co-author
 in [Koczor-Benda et al., *Digital Discovery* (2025)](https://doi.org/10.1039/D5DD00106D).
 It contains 68,268 rows from SMILES/GGS runs and 20 final clusters.
 
-**PCA is fitted once to the reference before candidates are added.** Bonding and
+PCA is fitted once to the reference before candidates are added. Bonding and
 SOAP structural descriptors have separate preprocessing/PCA models. Clustering
 combines three bonding PCs, three structural PCs and the logarithmic property,
 with saved scaling, using BIRCH followed by agglomerative clustering. The property
@@ -113,11 +113,11 @@ pretraining INI.
 
 | Step / script | Inputs | Main outputs |
 | --- | --- | --- |
-| Generate — `generate_molecules.py` | Existing `prior.pt` + `prior_manifest.json`, matching `Voc_adapted`, FragNet `ft.pt` + YAML, seed and evaluation budget. No molecule CSV is required. | `generation/full_history.csv` (search history/fitness), `fragnet_predictions.csv` (SMILES, predicted log-property and failure status), `agent_final.pt` (updated generator). |
-| Verify — `generate_molecules.py verify` | FragNet checkpoint/YAML, `graph_data/train.pkl`, `experiment/train_predictions.csv`. | Prediction agreement checks in `run.log`; stops on mismatch. |
-| Predict — `generate_molecules.py predict` | CSV with `smiles`; FragNet checkpoint/YAML. | `predictions.csv` with `fragnet_log_P_upconversion`, success/failure status and reasons; `prediction_manifest.json`. |
-| Map — `map_chemical_space.py` | Prediction CSV with `smiles` and `fragnet_log_P_upconversion`; `reference.pkl` + `reference.html`. | `space/candidates_in_space.csv` (coordinates, clusters and distances), `candidates_in_space.html`, mapping summary and rejections if any. |
-| Pretrain (optional) — `pretrain_generator.py` | `pretrain.ini`, existing NMO `translated_smiles.smi` and `Voc_adapted`. | New `prior.pt` and validity/atom-count diagnostics in the configured output directory. |
+| Generate: `generate_molecules.py` | Existing `prior.pt` + `prior_manifest.json`, matching `Voc_adapted`, FragNet `ft.pt` + YAML, seed and evaluation budget. No molecule CSV is required. | `generation/full_history.csv` (search history/fitness), `fragnet_predictions.csv` (SMILES, predicted log-property and failure status), `agent_final.pt` (updated generator). |
+| Verify: `generate_molecules.py verify` | FragNet checkpoint/YAML, `graph_data/train.pkl`, `experiment/train_predictions.csv`. | Prediction agreement checks in `run.log`; stops on mismatch. |
+| Predict: `generate_molecules.py predict` | CSV with `smiles`; FragNet checkpoint/YAML. | `predictions.csv` with `fragnet_log_P_upconversion`, success/failure status and reasons; `prediction_manifest.json`. |
+| Map: `map_chemical_space.py` | Prediction CSV with `smiles` and `fragnet_log_P_upconversion`; `reference.pkl` + `reference.html`. | `space/candidates_in_space.csv` (coordinates, clusters and distances), `candidates_in_space.html`, mapping summary and rejections if any. |
+| Pretrain (optional): `pretrain_generator.py` | `pretrain.ini`, existing NMO `translated_smiles.smi` and `Voc_adapted`. | New `prior.pt` and validity/atom-count diagnostics in the configured output directory. |
 
 FragNet inputs are under `fragnet_config_details/`: `fragnet_selected.yaml`,
 `experiment/ft.pt`, `graph_data/` and `splits/`. Training settings, history,
@@ -137,8 +137,8 @@ cd /storage/msszkb_grp/msshfg
 sbatch generate_and_map.sbatch
 ```
 
-Set `SEED` and `CALLS` near the top of the batch script. Defaults are **123** and
-**256 oracle evaluations**. The seed is arbitrary (0 to `2**32 - 1`); different
+Set `SEED` and `CALLS` near the top of the batch script. Defaults are 123 and
+256 oracle evaluations. The seed is arbitrary (0 to `232 - 1`); different
 seeds use the same prior and predictor. FragNet's graph-construction seed remains
 separate in its YAML. Software and hardware also affect reproducibility.
 
@@ -214,7 +214,7 @@ fragment contributions. Chemical similarity alone is not a confidence estimate.
 
 ### DFT fine-tuning
 
-Approximately **200 molecules already have DFT data**. Fine-tune the xTB-trained
+Approximately 200 molecules already have DFT data. Fine-tune the xTB-trained
 FragNet on these consistent DFT targets, using grouped validation/cross-validation
 for model selection and an independent test set. Compare DFT errors, rankings and
 fragment explanations before using the predictor in generation. The NMO prior
