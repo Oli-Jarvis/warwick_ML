@@ -104,8 +104,9 @@ For high-performing molecules, the analysis should address:
   separate SA/rotatable-bond terms in fitness.
 - **How familiar are the candidates to the model?**
   `fragnet_analysis/neighbours.py` compares Morgan fingerprints or supplied
-  embeddings. Use training-set neighbours, observed targets and the existing
-  `tanimoto_similarity/` error analysis alongside the fragment reports.
+  embeddings. These tools remain exploratory: the previous similarity analyses
+  did not provide a reliable guide to prediction error. Developing a useful
+  measure is an open next step.
 
 The report script currently reads saved train/validation/test splits; explaining
 new generation outputs requires adapting its input handling and checking that its
@@ -203,7 +204,22 @@ conda env create -f environment-nmo.yml
 conda env create -f environment-fragnet.yml
 ```
 
-## Next step: DFT fine-tuning
+## Next steps
+
+### Similarity and prediction reliability
+
+Previous trials of Morgan-fingerprint Tanimoto similarity, cosine similarity of
+FragNet embeddings, and Euclidean distances after PCA of those embeddings yielded
+little useful, consistent guidance on prediction error. None has been established
+as a reliable way to identify predictions we can trust. The embedding-distance
+analysis is separate from the descriptor PCA used for chemical-space mapping.
+
+Find and validate a similarity measure that helps identify when a candidate is
+poorly represented by the training data. Assess its relationship to held-out
+prediction errors before using it to prioritise generated molecules or interpret
+fragment contributions. Chemical similarity alone is not a confidence estimate.
+
+### DFT fine-tuning
 
 Approximately **200 molecules already have DFT data**. Fine-tune the xTB-trained
 FragNet on these consistent DFT targets, using grouped validation/cross-validation
