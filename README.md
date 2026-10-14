@@ -98,13 +98,15 @@ less well in the experiments conducted, so FragNet was retained.
 
 ## Next steps: DFT fine-tuning
 
+We already have approximately 200 molecules with DFT data for fine-tuning.
 Since xTB is already fast, the next objective is to predict DFT-derived properties
 without running DFT for every candidate. Fine-tuning will start from the
 xTB-trained FragNet parameters, with the current model used for comparison;
 any speed advantage over direct xTB evaluation should be measured.
 
-- Assemble diverse DFT-labelled molecules with a consistent calculation protocol,
-  target definition and units.
+- Prepare the existing DFT dataset for fine-tuning, checking that calculation protocols, target definitions and units
+  are consistent. With this small dataset, use grouped cross-validation within
+  the training data for model selection and retain an independent DFT test set.
 - Fine-tune FragNet, using validation data to select the learning rate, which layers
   to leave unchanged and when to stop training; evaluate errors and rankings on a
   separate DFT test set that keeps related molecular identities in the same split and check selected generated candidates explicitly with DFT.
@@ -119,6 +121,14 @@ calculations remain unchanged.
 These are planned steps; the current workflow uses the xTB-trained model.
 
 ## Chemical-space reference
+
+Clustering follows the approach discussed with Joe Gilkes and described in
+Koczor-Benda et al., [*Generative design of functional organic molecules for
+terahertz radiation detection*](https://doi.org/10.1039/D5DD00106D)
+(*Digital Discovery*, 2025), which he co-authored: combine bonding and SOAP
+structural PCA coordinates with a molecular property, then apply BIRCH followed
+by agglomerative clustering. Here it is applied to the combined SMILES/GGS data
+using `log_P_upconversion`; the exact inputs are listed below.
 
 All paths in this table are relative to `chemical_space_reference/`.
 
