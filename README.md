@@ -90,6 +90,12 @@ seven clustering dimensions. Reference properties are xTB-derived; candidate
 properties are predictions. Assignment distances help identify distant candidates
 but are not calibrated uncertainty estimates.
 
+Assignments are saved in the `cluster` column of `space/candidates_in_space.csv`.
+`space/cluster_report.html` shows up to 20 unique reference molecules nearest each
+cluster centroid, followed by the generated molecules assigned to that cluster.
+Distances use the full scaled clustering space; reference centroids and labels
+remain fixed. These representatives describe cluster centres, not highest performance.
+
 `fragnet_analysis/embeddings.py` combines automatically recorded per-run
 predictions into `full_history_generated.csv` and analyses all successful unique
 molecules, checking agreement with the generation predictor. Run in `fragnet`:
@@ -184,6 +190,17 @@ Independent prediction and mapping, in `fragnet`, for a CSV with a `smiles` colu
 python generate_molecules.py predict --input molecules.csv --output predictions_new
 python map_chemical_space.py --input predictions_new/predictions.csv --output mapped_new
 ```
+
+To produce the cluster report for an existing mapped run, in `fragnet`:
+
+```bash
+RUN=nmo_fragnet_generation/runs/seed123_job6367813
+python map_chemical_space.py --report-only \
+  --input "$RUN/space/candidates_in_space.csv" --output "$RUN/space"
+```
+
+This adds only `cluster_report.html`; it does not regenerate molecules or refit
+PCA/clustering. New mapping runs produce the report automatically.
 
 Optional pretraining, in `nmo`:
 
