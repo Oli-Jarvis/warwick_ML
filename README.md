@@ -31,28 +31,6 @@ length and area penalties are disabled. High predicted property and high fitness
 are therefore different rankings. Clustering is subsequent analysis and does
 not direct the search.
 
-To favour low upconversion, edit `FITNESS` near the top of
-`generate_molecules.py`: change `log_P_upconversion+5.0` to
-`5.0-log_P_upconversion`. Keep the positive reward transform and SA/rotatable-bond
-penalties. The offset 5 sets the transition region and should be checked against
-the prediction range before a longer run. Predictions and plot axes retain their
-original sign. Compare high/low searches from the same prior with matched budgets
-and seeds; no predictor or prior retraining is needed for this change.
-
-Low property is different from low total fitness: the latter can also mean poor
-SA, many rotatable bonds or failed evaluation. For a deliberate low-fitness control,
-append this line immediately after the original `FITNESS` definition:
-
-```python
-FITNESS = f"1.0/(1.0+({FITNESS}))"
-```
-
-This rewards valid molecules with low original total fitness; the existing
-failure/constraint checks still give failures zero reward. This reverses the
-preference for the penalties too, so it
-is not the choice for finding low-upconversion, synthetically accessible molecules.
-The default generation objective remains high upconversion.
-
 The prior is the saved starting generator. The supplied three-layer RNN
 (hidden size 512, maximum sequence length 140) was pretrained on
 `translated_smiles.smi` with `Voc_adapted`, minimising negative sequence
@@ -113,16 +91,9 @@ seven clustering dimensions. Reference properties are xTB-derived; candidate
 properties are predictions. Assignment distances help identify distant candidates
 but are not calibrated uncertainty estimates.
 
-### Fragment and connection analysis
-
-`fragnet_analysis/embeddings.py` combines run predictions into
-`full_history_generated.csv` and explains all successful unique molecules using
-the same FragNet model and graph construction as generation. It checks prediction
-agreement and rejects conflicting predictions or different known checkpoints.
-The shared CSV retains failures, repeats and source information; original NMO
-`full_history.csv` files retain fitness, SA and other search metadata.
-
-Run in `fragnet`, from the project root:
+`fragnet_analysis/embeddings.py` now analyses all successful unique generated
+molecules, using the generation model and graph construction and checking that
+unmasked predictions match the saved values. Run in `fragnet` from the project root:
 
 ```bash
 python fragnet_analysis/embeddings.py \
@@ -130,31 +101,31 @@ python fragnet_analysis/embeddings.py \
   --output nmo_fragnet_generation/generated_analysis --min-support 5
 ```
 
+The shared `full_history_generated.csv` retains evaluated rows, failures, repeats
+and source information; analysis excludes failures and counts each canonical
+isomeric molecule once. Original NMO histories retain fitness and SA. Use
+`--collect-only` to collect first, then pass the shared CSV to `--input`. Rebuild
+from all run files into a fresh output directory when adding runs.
+
 The offline `report.html` shows fragments and connections in molecular context.
-Contribution Δ = prediction(full) − prediction(masked): positive/orange supports
-higher predicted log-property; negative/blue supports lower values; grey is near
-zero. Fragment masking zeros final atom states while retaining fragment states;
-connection masking zeros both directed connection states in every layer. These
-are model sensitivities, not chemical deletions, additive property components or
-proven mechanisms; they do not explain the SA/rotatable-bond penalties.
+Contribution = `prediction(full) − prediction(masked)`: positive/orange supports
+higher predicted log-property, negative/blue supports lower values, and grey is
+near zero. Fragment masking zeros final atom states while retaining fragment
+states; connection masking zeros directed connection states in every layer.
+These are model sensitivities, not chemical deletions, additive contributions,
+SA/rotatable-bond explanations or proven mechanisms.
 
-Recurring-motif means give each molecule equal weight. Support counts distinct
-molecules, SD measures variation between them, and Positive is the fraction with
-positive mean Δ. High/low columns compare predictions above/below the dataset
-median; ties remain in the overall summary. Drawings show one occurrence, whose
-sign may differ from the overall mean. The command requires five supporting
-molecules per summary motif; individual effects remain in `contributions.csv`.
-`motif_summary.csv` stores summary statistics, `summary.json` records checks and
-settings, and `excluded.csv` records excluded rows when present.
+Summary means give each molecule equal weight. Support counts distinct molecules;
+SD measures variation between them; Positive is the fraction with positive mean
+contribution. High/low columns compare predictions above/below the dataset median;
+median ties remain in the overall summary. Example drawings show one occurrence,
+not the aggregate effect. The command requires five supporting molecules per
+summary motif. `contributions.csv` retains individual effects; `motif_summary.csv`
+stores summaries; `summary.json` records checks; `excluded.csv` is written when
+needed. No graph caches or embedding arrays are saved.
 
-Use `--collect-only` to build the shared CSV first, then pass it to `--input` for
-analysis. Rebuild from all run files into a new output directory when adding runs.
-`--top-n 10` optionally restricts analysis to the two extremes. No graph caches or
-embedding arrays are saved. Recurring signed effects can guide matched-substitution
-xTB/DFT tests, but the generated sample remains biased by its search objective.
-
-`fragnet_analysis/neighbours.py` and `tanimoto_similarity/` retain the previous
-similarity tools and results; their limitations are discussed below.
+`fragnet_analysis/neighbours.py` and `tanimoto_similarity/` retain the
+previous similarity tools and results; their limitations are noted below.
 
 ## Files and running
 
@@ -170,7 +141,6 @@ pretraining INI.
 | Verify: `generate_molecules.py verify` | FragNet checkpoint/YAML, `graph_data/train.pkl`, `experiment/train_predictions.csv`. | Prediction agreement checks in `run.log`; stops on mismatch. |
 | Predict: `generate_molecules.py predict` | CSV with `smiles`; FragNet checkpoint/YAML. | `predictions.csv` with `fragnet_log_P_upconversion`, success/failure status and reasons; `prediction_manifest.json`. |
 | Map: `map_chemical_space.py` | Prediction CSV with `smiles` and `fragnet_log_P_upconversion`; `reference.pkl` + `reference.html`. | `space/candidates_in_space.csv` (coordinates, clusters and distances), `candidates_in_space.html`, mapping summary and rejections if any. |
-| Explain: `fragnet_analysis/embeddings.py` | One or more generation prediction CSVs, or the shared history; matching FragNet checkpoint/configuration. | Shared `full_history_generated.csv`, `report.html`, contribution and motif-summary CSVs, small audit files. |
 | Pretrain (optional): `pretrain_generator.py` | `pretrain.ini`, existing NMO `translated_smiles.smi` and `Voc_adapted`. | New `prior.pt` and validity/atom-count diagnostics in the configured output directory. |
 
 FragNet inputs are under `fragnet_config_details/`: `fragnet_selected.yaml`,
@@ -232,7 +202,7 @@ matching manifest together.
 | Environment | Use and principal dependencies |
 | --- | --- |
 | `nmo` | Generation/pretraining; NMO dependencies, PyTorch, RDKit, NumPy, pandas, Matplotlib, tqdm, GGS and group-selfies. |
-| `fragnet` | Prediction, training, fragment analysis and mapping; PyTorch/PyG, torch-scatter, RDKit, NumPy, pandas, PyYAML, NetworkX, SciPy, scikit-learn, LMDB; ASE, DScribe and Plotly for mapping. |
+| `fragnet` | Prediction, training and mapping; PyTorch/PyG, torch-scatter, RDKit, NumPy, pandas, PyYAML, NetworkX, SciPy, scikit-learn, LMDB; ASE, DScribe and Plotly for mapping. |
 
 The batch selects the environments. Mapping requires reference-compatible RDKit,
 scikit-learn and DScribe versions; equivalent version spellings are accepted.
@@ -275,18 +245,6 @@ poorly represented by the training data. Assess its relationship to held-out
 prediction errors before using it to prioritise generated molecules or interpret
 fragment contributions. Chemical similarity alone is not a confidence estimate.
 
-### Other physical targets
-
-The [NMO benchmark](https://arxiv.org/abs/2606.30170) defines three task families:
-optomechanics (upconversion), phonon heat transport (low thermal conductance
-`k_ph`) and thermoelectric transport (high `ZT`). Extend the reward to the latter
-two using their task definitions and constraints. A reward edit alone cannot make
-the upconversion checkpoint predict transport: obtain consistent labels, train
-and validate a target-specific predictor, then update the oracle interface,
-normalisation/units, anchoring and output labels. Preserve the appropriate
-length/geometry constraints and construct a reference with the new property.
-These targets are planned; the current scripts predict only upconversion.
-
 ### DFT fine-tuning
 
 Approximately 200 molecules already have DFT data. Fine-tune the xTB-trained
@@ -304,5 +262,4 @@ The SCRTP pilot completed generation and mapping: 256 oracle evaluations,
 39 failures and 216 unique successfully mapped molecules. The saved/rebuilt
 five-molecule prediction check also passed. This confirms end-to-end execution;
 it does not establish molecular novelty or prediction accuracy.
-
 
