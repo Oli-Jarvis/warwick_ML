@@ -67,6 +67,9 @@ Test data were not used for selection.
 Errors are on the logarithmic target scale; Spearman ρ measures ranking agreement.
 These results measure agreement with xTB, not DFT or accuracy on newly generated
 molecules. KRR was also trialled but performed less well, so FragNet was retained.
+Earlier decision-tree and random-forest trials classified molecules into performance
+groups rather than predicting continuous property values, making them less directly
+suited to the regression-based generation objective.
 
 ## Chemical space and explainability
 
