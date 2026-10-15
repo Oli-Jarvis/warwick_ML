@@ -141,10 +141,12 @@ cd /storage/msszkb_grp/msshfg
 sbatch generate_and_map.sbatch
 ```
 
-The batch verifies predictor/reference compatibility, runs generation with FragNet
-scoring, maps candidates and automatically creates the cluster report. `verify`
-is an automatic preflight check; standalone `predict` only scores a supplied CSV
-and is not needed for this workflow.
+The batch checks predictor/reference compatibility, runs generation with FragNet
+scoring, maps candidates and automatically creates the cluster report.
+`generate_molecules.py verify` checks that the loaded model reproduces saved
+training predictions, using both saved and rebuilt molecular graphs; the batch
+runs this check automatically. `generate_molecules.py predict` scores molecules
+from a supplied CSV without running generation and can be used independently.
 
 | Step / script | Inputs | Main outputs |
 | --- | --- | --- |
