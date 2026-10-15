@@ -91,9 +91,9 @@ seven clustering dimensions. Reference properties are xTB-derived; candidate
 properties are predictions. Assignment distances help identify distant candidates
 but are not calibrated uncertainty estimates.
 
-`fragnet_analysis/embeddings.py` now analyses all successful unique generated
-molecules, using the generation model and graph construction and checking that
-unmasked predictions match the saved values. Run in `fragnet` from the project root:
+`fragnet_analysis/embeddings.py` combines automatically recorded per-run
+predictions into `full_history_generated.csv` and analyses all successful unique
+molecules, checking agreement with the generation predictor. Run in `fragnet`:
 
 ```bash
 python fragnet_analysis/embeddings.py \
@@ -101,28 +101,22 @@ python fragnet_analysis/embeddings.py \
   --output nmo_fragnet_generation/generated_analysis --min-support 5
 ```
 
-The shared `full_history_generated.csv` retains evaluated rows, failures, repeats
-and source information; analysis excludes failures and counts each canonical
-isomeric molecule once. Original NMO histories retain fitness and SA. Use
-`--collect-only` to collect first, then pass the shared CSV to `--input`. Rebuild
-from all run files into a fresh output directory when adding runs.
+`report.html` displays signed fragment/connection effects:
+Δ = prediction(full) − prediction(masked). Positive/orange supports higher
+predicted log-property; negative/blue supports lower values. Fragment masking
+suppresses final atom states; connection masking suppresses directed connection
+states across layers. These are model sensitivities, not chemical deletions or
+causal contributions.
 
-The offline `report.html` shows fragments and connections in molecular context.
-Contribution = `prediction(full) − prediction(masked)`: positive/orange supports
-higher predicted log-property, negative/blue supports lower values, and grey is
-near zero. Fragment masking zeros final atom states while retaining fragment
-states; connection masking zeros directed connection states in every layer.
-These are model sensitivities, not chemical deletions, additive contributions,
-SA/rotatable-bond explanations or proven mechanisms.
-
-Summary means give each molecule equal weight. Support counts distinct molecules;
-SD measures variation between them; Positive is the fraction with positive mean
-contribution. High/low columns compare predictions above/below the dataset median;
-median ties remain in the overall summary. Example drawings show one occurrence,
-not the aggregate effect. The command requires five supporting molecules per
-summary motif. `contributions.csv` retains individual effects; `motif_summary.csv`
-stores summaries; `summary.json` records checks; `excluded.csv` is written when
-needed. No graph caches or embedding arrays are saved.
+Motif summaries weight molecules equally. Support counts distinct molecules;
+`--min-support 5` requires five per summary motif without restricting individual
+analysis. SD reports between-molecule variation; Positive is the fraction with
+positive mean Δ. High/low groups lie above/below the median prediction; ties
+remain in overall summaries. Drawings show individual examples.
+`contributions.csv` stores individual effects, `motif_summary.csv` stores summaries,
+and small audit files record checks and exclusions. The shared history retains
+repeats, failures and source information; original NMO histories retain fitness
+and SA. Rebuild into a fresh output directory when adding runs.
 
 `fragnet_analysis/neighbours.py` and `tanimoto_similarity/` retain the
 previous similarity tools and results; their limitations are noted below.
