@@ -134,22 +134,27 @@ Keep the main scripts at the project root alongside `NMO_source_code/`,
 shared functions. If moving the project, update paths in the batch script and
 pretraining INI.
 
-`generate_molecules.py` provides three commands: `generate` runs NMO generation
-with FragNet scoring, `verify` checks agreement with saved training predictions,
-and `predict` scores an existing molecule CSV without generation. The normal
-`generate_and_map.sbatch` runs verification, generation and mapping automatically;
-standalone `predict` is not required for generated molecules.
+Submit the complete workflow with:
+
+```bash
+cd /storage/msszkb_grp/msshfg
+sbatch generate_and_map.sbatch
+```
+
+The batch verifies predictor/reference compatibility, runs generation with FragNet
+scoring, maps candidates and automatically creates the cluster report. `verify`
+is an automatic preflight check; standalone `predict` only scores a supplied CSV
+and is not needed for this workflow.
 
 | Step / script | Inputs | Main outputs |
 | --- | --- | --- |
 | Generate: `generate_molecules.py` | Existing `prior.pt` + `prior_manifest.json`, matching `Voc_adapted`, FragNet `ft.pt` + YAML, seed and evaluation budget. No molecule CSV is required. | `generation/full_history.csv` (search history/fitness), `fragnet_predictions.csv` (SMILES, predicted log-property and failure status), `agent_final.pt` (updated generator). |
-| Verify: `generate_molecules.py verify` | FragNet checkpoint/YAML, `graph_data/train.pkl`, `experiment/train_predictions.csv`. | Prediction agreement checks in `run.log`; stops on mismatch. |
-| Predict: `generate_molecules.py predict` | CSV with `smiles`; FragNet checkpoint/YAML. | `predictions.csv` with `fragnet_log_P_upconversion`, success/failure status and reasons; `prediction_manifest.json`. |
-| Map: `map_chemical_space.py` | Prediction CSV with `smiles` and `fragnet_log_P_upconversion`; `reference.pkl` + `reference.html`. | `space/candidates_in_space.csv` (coordinates, clusters and distances), `candidates_in_space.html`, mapping summary and rejections if any. |
+| Map: `map_chemical_space.py` | Prediction CSV with `smiles` and `fragnet_log_P_upconversion`; `reference.pkl` + `reference.html`. | `space/candidates_in_space.csv` (coordinates, clusters and distances), `candidates_in_space.html`, `cluster_report.html`, mapping summary and rejections if any. |
 | Pretrain (optional): `pretrain_generator.py` | `pretrain.ini`, existing NMO `translated_smiles.smi` and `Voc_adapted`. | New `prior.pt` and validity/atom-count diagnostics in the configured output directory. |
 
 FragNet inputs are under `fragnet_config_details/`: `fragnet_selected.yaml`,
-`experiment/ft.pt`, `graph_data/` and `splits/`. Training settings, history,
+`experiment/ft.pt`, `graph_data/` and `splits/`. Verification also uses
+`graph_data/train.pkl` and `experiment/train_predictions.csv`. Training settings, history,
 metrics and split predictions remain there; `experiment/last.pt` is the training
 checkpoint. The existing prior is in `nmo_fragnet_generation/generator_prior/`.
 The vocabulary and pretraining sequences are in
@@ -161,19 +166,15 @@ Code is on GitHub; required checkpoints, graph datasets and reference files are
 stored on SCRTP. The batch checks five saved/rebuilt graph predictions against
 training results and checks reference compatibility before generation.
 
-```bash
-cd /storage/msszkb_grp/msshfg
-sbatch generate_and_map.sbatch
-```
-
 Set `SEED` and `CALLS` near the top of the batch script. Defaults are 123 and
 256 oracle evaluations. The seed is arbitrary (0 to 4,294,967,295); different
 seeds use the same prior and predictor. FragNet's graph-construction seed remains
 separate in its YAML. Software and hardware also affect reproducibility.
 
-The batch (`generate_and_map.sbatch`) runs verification, generation and mapping.
-Its outputs are grouped under `nmo_fragnet_generation/runs/seed123_jobJOBID/`,
-with `generation/`, `space/` and combined Slurm log `run.log`. Small supporting
+Outputs are grouped under `nmo_fragnet_generation/runs/seed123_jobJOBID/`,
+with `generation/`, `space/` and combined Slurm log `run.log`. Open
+`space/candidates_in_space.html` for the projection and `space/cluster_report.html`
+for cluster representatives and assigned generated molecules. Small supporting
 files record the exact configuration/working script, model hashes, run and
 projection summaries, and predictor diagnostics (`fragnet_worker.log`).
 
@@ -183,24 +184,6 @@ is supplied. The offline HTML and final checkpoint are the main large outputs.
 Recovery checkpoints remain after interruption and are removed after successful
 generation; automatic resumption is not provided. The final agent contains model
 parameters, not optimiser/replay state.
-
-Independent prediction and mapping, in `fragnet`, for a CSV with a `smiles` column:
-
-```bash
-python generate_molecules.py predict --input molecules.csv --output predictions_new
-python map_chemical_space.py --input predictions_new/predictions.csv --output mapped_new
-```
-
-To produce the cluster report for an existing mapped run, in `fragnet`:
-
-```bash
-RUN=nmo_fragnet_generation/runs/seed123_job6367813
-python map_chemical_space.py --report-only \
-  --input "$RUN/space/candidates_in_space.csv" --output "$RUN/space"
-```
-
-This adds only `cluster_report.html`; it does not regenerate molecules or refit
-PCA/clustering. New mapping runs produce the report automatically.
 
 Optional pretraining, in `nmo`:
 
