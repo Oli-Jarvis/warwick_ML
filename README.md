@@ -251,7 +251,7 @@ DFT predictions require a reference with a consistent property basis because the
 property enters clustering. Descriptor PCA models can remain fixed, but DFT
 values must not simply replace xTB values in the existing cluster assignment.
 
-The SCRTP pilot completed generation and mapping: 256 oracle evaluations,
+The initial test run on SCRTP completed generation and mapping: 256 oracle evaluations,
 39 failures and 216 unique successfully mapped molecules. The saved/rebuilt
 five-molecule prediction check also passed. This confirms end-to-end execution;
 it does not establish molecular novelty or prediction accuracy.
