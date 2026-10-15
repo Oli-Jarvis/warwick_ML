@@ -115,21 +115,36 @@ but are not calibrated uncertainty estimates.
 
 ### Fragment and connection analysis
 
-In the `fragnet` environment, from the project root:
+In the `fragnet` environment, from the project root, combine all run prediction
+files and explain every successful unique molecule:
 
 ```bash
-RUN=nmo_fragnet_generation/runs/seed123_job6367813
 python fragnet_analysis/embeddings.py \
-  --input "$RUN/generation/fragnet_predictions.csv" \
-  --output "$RUN/fragments" --top-n 10
+  --input nmo_fragnet_generation/runs/*/generation/fragnet_predictions.csv \
+  --output nmo_fragnet_generation/generated_analysis --min-support 5
 ```
 
-This compares up to ten highest and ten lowest predicted unique molecules, with
-no overlap. `--select high` or `--select low` chooses one tail; `--top-n 0` explains
-all successful unique molecules. These are rankings within this run, not measured
-performance or total fitness. Failed rows and canonical isomeric duplicates are
-excluded. Unmasked predictions must match the saved predictions before results
-are written (absolute tolerance 1e-4, relative tolerance 1e-5).
+This writes `full_history_generated.csv` alongside the report. The shared table
+retains every evaluated row, including repeats and failures, with source-file,
+source-line and checkpoint information. It is a prediction history; original NMO
+`full_history.csv` files retain fitness, SA and other search metadata. Invalid
+sequences discarded before oracle evaluation are not in the prediction history.
+Different known predictor checkpoints or conflicting predictions for the same
+canonical isomeric molecule are rejected, rather than silently combined.
+
+Analysis excludes failures and explains each canonical isomeric molecule once.
+All unique molecules contribute to the overall motif statistics. High/low columns
+compare predictions above/below the combined dataset median; exact median ties
+contribute only to the overall statistics. These are relative predicted-property
+groups, not measured performance or fitness classes. `--top-n 10` optionally limits
+analysis to ten molecules per tail; `--select high` or `--select low` then selects
+one tail. Unmasked predictions must match saved values (absolute tolerance 1e-4,
+relative tolerance 1e-5).
+
+Use `--collect-only` to build the shared CSV without explanations. It can later be
+supplied to `--input` instead of the run files. To include later runs, rebuild from
+the complete set of run files into a new output directory; do not append the same
+histories repeatedly. Existing nonempty output directories are protected.
 
 The offline `report.html` contains recurring motifs and expandable molecule
 reports. Orange/positive Δ supports higher predicted log-property; blue/negative Δ
@@ -142,7 +157,7 @@ every layer. Neither operation removes atoms or chemically cleaves a bond.
 Summary means first average repeated occurrences within each molecule, then give
 each molecule equal weight. Support is the number of distinct molecules; SD is
 between-molecule variation; Positive is the fraction with positive mean Δ.
-High/low columns give the mean and support in each selected tail. By default,
+High/low columns give the mean and support in each comparison group. By default,
 summary motifs require two molecules (`--min-support`); all occurrences remain
 in `contributions.csv`. `motif_summary.csv` contains the summary statistics;
 `summary.json` records model/input hashes and prediction agreement. `excluded.csv`
@@ -152,7 +167,8 @@ Motifs retain attachment sites (`*` in the CSV); connection motifs represent joi
 fragment pairs. These are context-dependent model sensitivities, not additive
 property components, causal effects or confidence estimates. Use recurring signed
 effects to propose matched substitutions for explicit xTB/DFT testing. Selecting
-only the extremes does not establish enrichment across the whole dataset.
+only the extremes does not establish enrichment across the whole dataset. Even
+with all generated molecules, the sample reflects the generator and search objective.
 
 ## Files and running
 
@@ -168,7 +184,7 @@ pretraining INI.
 | Verify: `generate_molecules.py verify` | FragNet checkpoint/YAML, `graph_data/train.pkl`, `experiment/train_predictions.csv`. | Prediction agreement checks in `run.log`; stops on mismatch. |
 | Predict: `generate_molecules.py predict` | CSV with `smiles`; FragNet checkpoint/YAML. | `predictions.csv` with `fragnet_log_P_upconversion`, success/failure status and reasons; `prediction_manifest.json`. |
 | Map: `map_chemical_space.py` | Prediction CSV with `smiles` and `fragnet_log_P_upconversion`; `reference.pkl` + `reference.html`. | `space/candidates_in_space.csv` (coordinates, clusters and distances), `candidates_in_space.html`, mapping summary and rejections if any. |
-| Explain: `fragnet_analysis/embeddings.py` | Generation prediction CSV and the same FragNet checkpoint/configuration. | `fragments/report.html`, occurrence and motif-summary CSVs, small audit files. |
+| Explain: `fragnet_analysis/embeddings.py` | One or more generation prediction CSVs, or the shared history; matching FragNet checkpoint/configuration. | Shared `full_history_generated.csv`, `report.html`, contribution and motif-summary CSVs, small audit files. |
 | Pretrain (optional): `pretrain_generator.py` | `pretrain.ini`, existing NMO `translated_smiles.smi` and `Voc_adapted`. | New `prior.pt` and validity/atom-count diagnostics in the configured output directory. |
 
 FragNet inputs are under `fragnet_config_details/`: `fragnet_selected.yaml`,
