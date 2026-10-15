@@ -134,8 +134,10 @@ analysis. SD reports between-molecule variation; Positive is the fraction with
 positive mean Δ. High/low groups are the top/bottom 20% ranked by predicted
 log-upconversion, rounded down; ties are ordered by canonical SMILES. All molecules,
 including the middle 60%, contribute to overall summaries. Drawings show individual examples.
-`contributions.csv` stores individual effects, `motif_summary.csv` stores summaries,
-and small audit files record checks and exclusions. The shared history retains
+`contributions.csv` stores individual effects and `motif_summary.csv` stores summaries.
+`embeddings.csv` contains FragNet's native pooled atom/fragment vectors immediately
+before the regression head, without PCA, normalisation or other transformations;
+small audit files record checks and exclusions. The shared history retains
 repeats, failures and source information; original NMO histories retain fitness
 and SA. Rebuild into a fresh output directory when adding runs.
 Generated-set summaries reflect the search objective, rather than unbiased motif enrichment.
