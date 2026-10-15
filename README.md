@@ -47,7 +47,7 @@ require pretraining again.
 ## Predictor and performance
 
 FragNet was trained on xTB-derived `log_P_upconversion` from the combined SMILES
-and GGS run histories. After cleaning and deduplication across runs and datasets,
+and GGS run histories supplied by Matthias Blaschke. After cleaning and deduplication across runs and datasets,
 each canonical isomeric SMILES appears once, giving 39,696 accepted unique molecules
 across training, validation and test. Repeated molecules receive the mean of their
 distinct observed target values. Molecules differing only in stereochemistry stay
