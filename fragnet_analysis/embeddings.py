@@ -1,787 +1,422 @@
 #!/usr/bin/env python3
-"""Generate a plain FragNet fragment and fragment-connection HTML report.
-
-Typical usage, inside the Python environment that already contains FragNet:
-
-    python embeddings.py --top-n 10
-
-The generated report is an ordinary offline HTML file; it does not require
-Streamlit, an internet connection, or any JavaScript packages.
-"""
-
-from __future__ import annotations
-
+"""Explain generated FragNet predictions using the generation model and graphs."""
 import argparse
-import ast
-import base64
-import datetime as dt
-import io
+import contextlib
+import csv
+import html
 import json
 import math
+import os
 import statistics
 import sys
 from collections import defaultdict
 from pathlib import Path
-from typing import Any
+from types import SimpleNamespace
+
+ROOT = Path(__file__).resolve().parents[1]
+TARGET = 'fragnet_log_P_upconversion'
 
 
-DEFAULT_ROOT = Path("fragnet_combined_selected_stereo")
-
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description=(
-            "Create an interactive, offline HTML report showing which FragNet "
-            "fragments and fragment connections increase predicted P."
-        )
-    )
-    parser.add_argument("--root", type=Path, default=DEFAULT_ROOT)
-    parser.add_argument("--fragnet-dir", type=Path, default=Path("smiles_baseline2/FragNet"))
-    parser.add_argument("--config", type=Path, help="Override the YAML configuration path.")
-    parser.add_argument("--checkpoint", type=Path, help="Override the ft.pt checkpoint path.")
-    parser.add_argument("--split", default="test", help="CSV split name: test, val, or train.")
-    parser.add_argument("--target", default="log_P_upconversion")
-    parser.add_argument("--smiles-column", default=None)
-    parser.add_argument("--top-n", type=int, default=30)
-    parser.add_argument(
-        "--rank-by",
-        choices=("observed", "predicted"),
-        default="observed",
-        help="Select molecules by observed target or by model prediction.",
-    )
-    parser.add_argument(
-        "--max-error",
-        type=float,
-        default=None,
-        help="Exclude molecules whose absolute prediction error exceeds this value.",
-    )
-    parser.add_argument(
-        "--property-selector",
-        default="Solubility",
-        help=(
-            "FragNet's internal regression-code selector. Its default does NOT "
-            "change the target: predictions always use the supplied checkpoint."
-        ),
-    )
-    parser.add_argument("--fragmentation", default="brics")
-    parser.add_argument("--output", type=Path, default=None)
-    parser.add_argument(
-        "--demo",
-        action="store_true",
-        help="Generate a clearly labelled synthetic report to test the renderer.",
-    )
-    args = parser.parse_args()
-    if args.top_n < 1:
-        parser.error("--top-n must be at least 1")
-    if args.max_error is not None and args.max_error < 0:
-        parser.error("--max-error must be non-negative")
+def parse_args():
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument('--input', required=True, type=Path, nargs='+',
+                   help='One or more fragnet_predictions.csv files, or full_history_generated.csv')
+    p.add_argument('--output', required=True, type=Path)
+    p.add_argument('--root', type=Path, default=ROOT / 'fragnet_config_details')
+    p.add_argument('--fragnet-dir', type=Path, default=ROOT / 'fragnet_source_code')
+    p.add_argument('--top-n', type=int, default=0, help='Maximum molecules per 20%% tail; default 0 analyses all')
+    p.add_argument('--select', choices=['both', 'high', 'low'], default='both')
+    p.add_argument('--min-support', type=int, default=2, help='Distinct molecules per summary motif')
+    p.add_argument('--threads', type=int, default=1)
+    p.add_argument('--collect-only', action='store_true', help='Build shared CSV without running explanations')
+    args = p.parse_args()
+    if args.top_n < 0 or args.min_support < 1 or args.threads < 1:
+        p.error('Require top-n >= 0, min-support >= 1 and threads >= 1')
+    if args.top_n == 0 and args.select != 'both':
+        p.error('--select high/low requires a positive --top-n')
     return args
 
 
-def number(value: Any) -> float | None:
-    try:
-        result = float(value)
-    except (TypeError, ValueError):
-        return None
-    return result if math.isfinite(result) else None
-
-
-def svg_data_url(svg: str) -> str:
-    encoded = base64.b64encode(svg.encode("utf-8")).decode("ascii")
-    return f"data:image/svg+xml;base64,{encoded}"
-
-
-def image_data_url(image: Any) -> str | None:
-    if image is None:
-        return None
-    if isinstance(image, str) and "<svg" in image:
-        return svg_data_url(image)
-    if hasattr(image, "save"):
-        output = io.BytesIO()
-        image.save(output, format="PNG")
-        return "data:image/png;base64," + base64.b64encode(output.getvalue()).decode("ascii")
-    return None
-
-
-def parse_connection(value: Any) -> tuple[int, int] | None:
-    try:
-        decoded = ast.literal_eval(value) if isinstance(value, str) else value
-        if len(decoded) != 2:
-            return None
-        return int(decoded[0]), int(decoded[1])
-    except (TypeError, ValueError, SyntaxError, IndexError):
-        return None
-
-
-def fragment_motif(mol: Any, atom_ids: list[int], chem: Any) -> str:
-    valid_atoms = [
-        int(index)
-        for index in atom_ids
-        if 0 <= int(index) < mol.GetNumAtoms()
-        and mol.GetAtomWithIdx(int(index)).GetAtomicNum() > 1
-    ]
-    if not valid_atoms:
-        valid_atoms = [int(index) for index in atom_ids if 0 <= int(index) < mol.GetNumAtoms()]
-    if not valid_atoms:
-        return "[unknown fragment]"
-    try:
-        return chem.MolFragmentToSmiles(mol, atomsToUse=valid_atoms, canonical=True)
-    except Exception:
-        symbols = [mol.GetAtomWithIdx(index).GetSymbol() for index in valid_atoms]
-        return "-".join(symbols) or "[unknown fragment]"
-
-
-def motif_image(motif: str, chem: Any, drawer_module: Any) -> str | None:
-    try:
-        molecule = chem.MolFromSmiles(motif)
-        if molecule is None:
-            return None
-        drawer = drawer_module.MolDraw2DSVG(440, 260)
-        options = drawer.drawOptions()
-        options.padding = 0.18
-        drawer_module.PrepareAndDrawMolecule(drawer, molecule)
-        drawer.FinishDrawing()
-        return svg_data_url(drawer.GetDrawingText())
-    except Exception:
-        return None
-
-
-def signed_molecule_image(
-    smiles: str,
-    fragments: list[dict[str, Any]],
-    chem: Any,
-    drawer_module: Any,
-) -> str | None:
-    try:
-        molecule = chem.MolFromSmiles(smiles)
-        if molecule is None:
-            return None
-
-        drawer = drawer_module.MolDraw2DSVG(520, 300)
-        options = drawer.drawOptions()
-        options.padding = 0.12
-        drawer_module.PrepareAndDrawMolecule(drawer, molecule)
-        drawer.FinishDrawing()
-        return svg_data_url(drawer.GetDrawingText())
-    except Exception:
-        return None
-
-
-def choose_columns(frame: Any, args: argparse.Namespace) -> tuple[str, str]:
-    if args.smiles_column:
-        smiles_column = args.smiles_column
-    else:
-        candidates = {str(column).lower(): str(column) for column in frame.columns}
-        smiles_column = next(
-            (candidates[key] for key in ("smiles", "canonical_smiles", "smile") if key in candidates),
-            "",
-        )
-    if not smiles_column or smiles_column not in frame.columns:
-        raise ValueError(
-            "Could not find a SMILES column. Available columns: "
-            f"{list(frame.columns)}. Specify --smiles-column COLUMN."
-        )
-    target_column = args.target
-    if target_column == "log_P_upconversion" and target_column not in frame.columns and "y" in frame.columns:
-        target_column = "y"
-    if target_column not in frame.columns:
-        raise ValueError(
-            f"Target column {args.target!r} was not found. "
-            f"Available columns: {list(frame.columns)}. Specify --target COLUMN."
-        )
-    return smiles_column, target_column
-
-
-def build_real_dataset(args: argparse.Namespace) -> dict[str, Any]:
-    root = args.root.expanduser().resolve()
-    fragnet_paths = [args.fragnet_dir.expanduser().resolve(),
-                     (root.parent / args.fragnet_dir).expanduser().resolve()]
-    for candidate in fragnet_paths:
-        if (candidate / "fragnet").is_dir():
-            sys.path.insert(0, str(candidate))
-            break
-    try:
-        import pandas as pd
-        from rdkit import Chem
-        from rdkit.Chem.Draw import rdMolDraw2D
-        from fragnet.vizualize.model_attr import get_attr_image
-        from fragnet.vizualize.viz import FragNetVizApp, get_atoms_in_frags, get_frags
-    except ImportError as error:
-        raise SystemExit(
-            f"Missing dependency: {error}\n"
-            "Activate the Python environment used to train FragNet, for example:\n"
-            "    source ~/.env/fragnet/bin/activate\n"
-            "Then run this script again from the FragNet repository if necessary."
-        ) from error
-
-    config = (args.config or root / "fragnet_selected.yaml").expanduser().resolve()
-    checkpoint = (args.checkpoint or root / "experiment" / "ft.pt").expanduser().resolve()
-    split = root / "splits" / f"{args.split}.csv"
-
-    missing = [str(path) for path in (config, checkpoint, split) if not path.is_file()]
-    if missing:
-        raise SystemExit("Required FragNet run files were not found:\n  " + "\n  ".join(missing))
-
-    frame = pd.read_csv(split)
-    smiles_column, target_column = choose_columns(frame, args)
-    frame = frame.dropna(subset=[smiles_column, target_column]).copy()
-    frame[target_column] = pd.to_numeric(frame[target_column], errors="coerce")
-    frame = frame.dropna(subset=[target_column])
-    if frame.empty:
-        raise SystemExit(f"No usable molecules were found in {split}.")
-
-    print(f"Loading trained checkpoint: {checkpoint}", flush=True)
-    try:
-        viz = FragNetVizApp(str(config), str(checkpoint))
-    except Exception as error:
-        raise SystemExit(
-            f"Could not load the model through FragNetVizApp: {error}\n"
-            "Check that fragnet_selected.yaml describes the architecture used for ft.pt "
-            "and that you are using the same FragNet checkout as during training."
-        ) from error
-
-    prediction_cache: dict[str, float] = {}
-    failures: list[str] = []
-    if args.rank_by == "predicted":
-        print(f"Ranking {len(frame)} molecules by predicted {target_column} ...", flush=True)
-        predictions = []
-        for smiles in frame[smiles_column].astype(str):
+def read_candidates(path, identity):
+    accepted, excluded, seen = [], [], {}
+    with path.open(newline='') as f:
+        reader = csv.DictReader(f)
+        if not {'smiles', TARGET, 'prediction_ok'} <= set(reader.fieldnames or []):
+            raise ValueError(f'Input must contain smiles, {TARGET} and prediction_ok')
+        for line, row in enumerate(reader, 2):
             try:
-                prediction = float(viz.calc_weights(smiles))
-                prediction_cache[smiles] = prediction
-                predictions.append(prediction)
-            except Exception as error:
-                failures.append(f"Prediction failed for {smiles}: {error}")
-                predictions.append(float("nan"))
-        frame["_fragnet_prediction"] = predictions
-        ranked = frame.dropna(subset=["_fragnet_prediction"]).sort_values(
-            "_fragnet_prediction", ascending=False
-        )
-    else:
-        ranked = frame.sort_values(target_column, ascending=False)
-
-    molecules = []
-    supports_signed_connections = hasattr(viz, "calc_fbond_contributions")
-    for _, row in ranked.iterrows():
-        if len(molecules) >= args.top_n:
-            break
-        smiles = str(row[smiles_column]).strip()
-        actual = float(row[target_column])
-        print(f"Explaining molecule {len(molecules) + 1}/{args.top_n}: {smiles}", flush=True)
-
-        try:
-            # calc_weights also populates viz.mol and viz.data_item; call it even
-            # if a prediction was cached during predicted-value ranking.
-            prediction = float(viz.calc_weights(smiles))
-            prediction_cache[smiles] = prediction
-            error_value = abs(prediction - actual)
-            if args.max_error is not None and error_value > args.max_error:
-                print(f"  Skipping: absolute error {error_value:.3f} exceeds threshold.", flush=True)
+                if row['prediction_ok'].strip().lower() not in {'true', '1', '1.0'}:
+                    raise ValueError('Prediction failed: ' + row.get('prediction_error', ''))
+                value = float(row[TARGET])
+                if not math.isfinite(value):
+                    raise ValueError('Non-finite prediction')
+                smiles = identity(row['smiles'])[0]
+            except (ValueError, TypeError) as exc:
+                excluded.append(dict(line=line, smiles=row.get('smiles', ''), reason=str(exc)))
                 continue
-
-            fragment_attention_image = None
-            fragment_attention = {}
-            attention_connections = {}
-            try:
-                fragment_png, _, weight_frame, connection_frame, atoms_in_frags = (
-                    viz.frag_weight_highlight()
-                )
-                fragment_attention_image = image_data_url(fragment_png)
-                for _, weight_row in weight_frame.iterrows():
-                    fragment_attention[int(weight_row["fragment"])] = number(weight_row["weight"])
-                for _, connection_row in connection_frame.iterrows():
-                    pair = parse_connection(connection_row["connection"])
-                    if pair is not None:
-                        attention_connections[tuple(sorted(pair))] = number(connection_row["weight"])
-            except Exception as attention_error:
-                graph, _ = get_frags(smiles)
-                atoms_in_frags = get_atoms_in_frags(graph)
-                try:
-                    values = viz.summed_attn_weights_frags.sum(1).detach().cpu().tolist()
-                    fragment_attention.update({index: number(value) for index, value in enumerate(values)})
-                except Exception:
-                    pass
-                failures.append(f"Attention rendering failed for {smiles}: {attention_error}")
-
-            # "Solubility" selects FragNet's existing *generic fine-tuned
-            # regression path*. The actual model and target are determined by
-            # config/checkpoint, not by this legacy selector label.
-            attribution_image, _, raw_contributions = get_attr_image(
-                smiles,
-                str(config),
-                str(checkpoint),
-                args.property_selector,
-                frag_type=args.fragmentation,
-            )
-
-            fragment_map = {}
-            for raw_id, raw_atoms in atoms_in_frags.items():
-                fragment_id = int(raw_id)
-                atom_ids = [int(value) for value in raw_atoms]
-                fragment_map[fragment_id] = {
-                    "id": fragment_id,
-                    "atoms": atom_ids,
-                    "motif": fragment_motif(viz.mol, atom_ids, Chem),
-                    "attention": fragment_attention.get(fragment_id),
-                    "contribution": None,
-                }
-
-            for contribution in raw_contributions:
-                fragment_id = int(contribution["fragment_index"])
-                atom_ids = [int(value) for value in contribution.get("atoms", [])]
-                entry = fragment_map.setdefault(
-                    fragment_id,
-                    {
-                        "id": fragment_id,
-                        "atoms": atom_ids,
-                        "motif": fragment_motif(viz.mol, atom_ids, Chem),
-                        "attention": fragment_attention.get(fragment_id),
-                        "contribution": None,
-                    },
-                )
-                entry["contribution"] = number(contribution.get("contribution"))
-
-            fragments = sorted(
-                fragment_map.values(),
-                key=lambda item: item["contribution"] if item["contribution"] is not None else -math.inf,
-                reverse=True,
-            )
-            for fragment in fragments:
-                fragment["image"] = motif_image(fragment["motif"], Chem, rdMolDraw2D)
-
-            signed_connections = {}
-            connection_warning = None
-            if supports_signed_connections:
-                try:
-                    connection_frame = viz.calc_fbond_contributions(
-                        viz.data_item, args.property_selector
-                    )
-                    for _, connection_row in connection_frame.iterrows():
-                        pair = tuple(
-                            sorted((int(connection_row["begin_index"]), int(connection_row["end_index"])))
-                        )
-                        signed_connections[pair] = number(connection_row["attr"])
-                except Exception as connection_error:
-                    connection_warning = str(connection_error)
-                    failures.append(f"Signed connection masking failed for {smiles}: {connection_error}")
-
-            connections = []
-            for begin, end in sorted(set(attention_connections) | set(signed_connections)):
-                left = fragment_map.get(begin, {}).get("motif", f"fragment {begin}")
-                right = fragment_map.get(end, {}).get("motif", f"fragment {end}")
-                connections.append(
-                    {
-                        "begin": begin,
-                        "end": end,
-                        "left": left,
-                        "right": right,
-                        "label": " ↔ ".join(sorted((left, right))),
-                        "attention": attention_connections.get((begin, end)),
-                        "contribution": signed_connections.get((begin, end)),
-                    }
-                )
-            connections.sort(
-                key=lambda item: (
-                    item["contribution"] is not None,
-                    item["contribution"] if item["contribution"] is not None else item["attention"] or 0,
-                ),
-                reverse=True,
-            )
-
-            molecules.append(
-                {
-                    "smiles": smiles,
-                    "actual": actual,
-                    "predicted": prediction,
-                    "error": error_value,
-                    "image": signed_molecule_image(smiles, fragments, Chem, rdMolDraw2D)
-                    or image_data_url(attribution_image),
-                    "attention_image": fragment_attention_image,
-                    "fragments": fragments,
-                    "connections": connections,
-                    "connection_warning": connection_warning,
-                }
-            )
-        except Exception as error:
-            failures.append(f"Explanation failed for {smiles}: {error}")
-            print(f"  Skipping molecule after explanation error: {error}", file=sys.stderr, flush=True)
-
-    if not molecules:
-        preview = "\n  ".join(failures[:5]) or "No molecules met the filtering criteria."
-        raise SystemExit(
-            "No molecules could be explained. Check your checkpoint/configuration and "
-            "consider removing --max-error. First issues:\n  " + preview
-        )
-
-    return {
-        "title": "FragNet high-P structure–property report",
-        "target": target_column,
-        "generated_at": dt.datetime.now().strftime("%d %b %Y, %H:%M"),
-        "checkpoint": str(checkpoint),
-        "split": str(split),
-        "rank_by": args.rank_by,
-        "max_error": args.max_error,
-        "dataset_size": int(len(frame)),
-        "demo": False,
-        "molecules": molecules,
-        "warnings": failures[:30],
-        "signed_connections_available": any(
-            connection.get("contribution") is not None
-            for molecule in molecules
-            for connection in molecule["connections"]
-        ),
-    }
+            if smiles in seen:
+                if not math.isclose(value, seen[smiles], rel_tol=1e-5, abs_tol=1e-4):
+                    raise ValueError(f'Conflicting predictions for the same molecule at line {line}')
+                excluded.append(dict(line=line, smiles=smiles, reason='Duplicate canonical isomeric SMILES'))
+                continue
+            seen[smiles] = value
+            accepted.append(dict(smiles=smiles, saved_prediction=value, source_line=line))
+    if not accepted:
+        raise ValueError('No successful finite predictions in input')
+    return sorted(accepted, key=lambda r: (r['saved_prediction'], r['smiles'])), excluded
 
 
-def demo_svg(label: str, positive: bool = True) -> str:
-    color = "#aaa"
-    markup = (
-        '<svg xmlns="http://www.w3.org/2000/svg" width="520" height="300" '
-        'viewBox="0 0 520 300">'
-        '<rect width="520" height="300" fill="#ffffff"/>'
-        '<path d="M110 150 L155 110 L205 130 L210 180 L165 205 L115 185 Z '
-        'M205 130 L275 112 L325 152 L375 124 M325 152 L350 206" '
-        'fill="none" stroke="#334155" stroke-width="7" stroke-linejoin="round"/>'
-        f'<circle cx="275" cy="112" r="30" fill="{color}" fill-opacity=".43"/>'
-        '<text x="268" y="121" font-size="26" font-family="Arial" fill="#0f172a">N</text>'
-        '</svg>'
-    )
-    return svg_data_url(markup)
+def select_candidates(rows, top_n, selection):
+    ranked = sorted(rows, key=lambda r: (r['saved_prediction'], r['smiles']))
+    n = len(ranked) // 5
+    labelled = [dict(r, cohort=('low' if i < n else
+                               'high' if n and i >= len(ranked)-n else 'middle'))
+                for i, r in enumerate(ranked)]
+    if top_n == 0:
+        return labelled
+    if n == 0:
+        raise ValueError('At least five unique molecules are required for 20% tail selection')
+    low = labelled[:min(n, top_n)]
+    high = labelled[-min(n, top_n):][::-1]
+    return high + low if selection == 'both' else high if selection == 'high' else low
 
 
-def build_demo_dataset(args: argparse.Namespace) -> dict[str, Any]:
-    definitions = [
-        ("Nc1ccc(S)cc1", 3.82, 3.71, [("N", 0.88), ("c1ccccc1", 0.33), ("S", 0.61)]),
-        ("Nc1ccc(O)cc1", 3.47, 3.42, [("N", 0.75), ("c1ccccc1", 0.28), ("O", -0.14)]),
-        ("CNc1ccncc1", 3.31, 3.39, [("CN", 0.59), ("c1ccncc1", 0.48)]),
-        ("Nc1ccc(N)cc1", 3.08, 2.99, [("N", 0.71), ("c1ccccc1", 0.22), ("N", 0.45)]),
-        ("Sc1ccncc1", 2.92, 2.88, [("S", 0.55), ("c1ccncc1", 0.31)]),
-    ]
-    molecules = []
-    for smiles, actual, predicted, items in definitions[: args.top_n]:
-        fragments = [
-            {
-                "id": index,
-                "atoms": [index, index + 1],
-                "motif": motif,
-                "attention": 1.8 + contribution,
-                "contribution": contribution,
-                "image": demo_svg(motif, positive=contribution >= 0),
-            }
-            for index, (motif, contribution) in enumerate(items)
-        ]
-        connections = [
-            {
-                "begin": index,
-                "end": index + 1,
-                "left": items[index][0],
-                "right": items[index + 1][0],
-                "label": " ↔ ".join(sorted((items[index][0], items[index + 1][0]))),
-                "attention": 2.3 + index * 0.2,
-                "contribution": 0.41 - index * 0.17,
-            }
-            for index in range(len(items) - 1)
-        ]
-        molecules.append(
-            {
-                "smiles": smiles,
-                "actual": actual,
-                "predicted": predicted,
-                "error": abs(actual - predicted),
-                "image": demo_svg(smiles),
-                "attention_image": None,
-                "fragments": fragments,
-                "connections": connections,
-                "connection_warning": None,
-            }
-        )
-    return {
-        "title": "FragNet high-P structure–property report",
-        "target": args.target,
-        "generated_at": dt.datetime.now().strftime("%d %b %Y, %H:%M"),
-        "checkpoint": "SYNTHETIC DEMONSTRATION — not a trained checkpoint",
-        "split": "SYNTHETIC DEMONSTRATION — not real model predictions",
-        "rank_by": "observed",
-        "max_error": None,
-        "dataset_size": len(definitions),
-        "demo": True,
-        "molecules": molecules,
-        "warnings": [],
-        "signed_connections_available": True,
-    }
+class CaptureCreator:
+    """Retain the exact molecule used by the shared graph builder for drawings."""
+    def __init__(self, creator):
+        self.creator = creator
+
+    def __getattr__(self, name):
+        return getattr(self.creator, name)
+
+    def create_data_point(self, args):
+        self.mol = args[2]
+        return self.creator.create_data_point(args)
 
 
-def summarize(dataset: dict[str, Any]) -> None:
-    grouped_fragments: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    grouped_connections: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for molecule_index, molecule in enumerate(dataset["molecules"]):
-        for fragment in molecule["fragments"]:
-            grouped_fragments[fragment["motif"]].append({**fragment, "molecule": molecule_index})
-        for connection in molecule["connections"]:
-            grouped_connections[connection["label"]].append({**connection, "molecule": molecule_index})
-
-    def compile_group(label: str, entries: list[dict[str, Any]]) -> dict[str, Any]:
-        values = [entry["contribution"] for entry in entries if entry.get("contribution") is not None]
-        attentions = [entry["attention"] for entry in entries if entry.get("attention") is not None]
-        return {
-            "label": label,
-            "mean": statistics.fmean(values) if values else None,
-            "median": statistics.median(values) if values else None,
-            "positive_fraction": sum(value > 0 for value in values) / len(values) if values else None,
-            "support": len({entry["molecule"] for entry in entries}),
-            "occurrences": len(entries),
-            "attention": statistics.fmean(attentions) if attentions else None,
-            "image": next((entry.get("image") for entry in entries if entry.get("image")), None),
-            "molecules": sorted({entry["molecule"] for entry in entries}),
-        }
-
-    def ranking(item: dict[str, Any]) -> tuple[bool, float, int]:
-        return (item["mean"] is not None, item["mean"] or item["attention"] or 0, item["support"])
-
-    dataset["fragment_summary"] = sorted(
-        (compile_group(label, entries) for label, entries in grouped_fragments.items()),
-        key=ranking,
-        reverse=True,
-    )
-    fragment_lookup = {}
-    for index, fragment in enumerate(dataset["fragment_summary"], start=1):
-        fragment["display_name"] = f"Fragment {index}"
-        fragment_lookup[fragment["label"]] = fragment
-
-    for molecule in dataset["molecules"]:
-        for fragment in molecule["fragments"]:
-            fragment["display_name"] = fragment_lookup[fragment["motif"]]["display_name"]
-        for connection in molecule["connections"]:
-            left = fragment_lookup.get(connection["left"], {})
-            right = fragment_lookup.get(connection["right"], {})
-            connection["left_name"] = left.get("display_name", f"Fragment {connection['begin'] + 1}")
-            connection["right_name"] = right.get("display_name", f"Fragment {connection['end'] + 1}")
-            connection["left_image"] = left.get("image")
-            connection["right_image"] = right.get("image")
-            connection["display_name"] = f"{connection['left_name']} ↔ {connection['right_name']}"
-
-    dataset["connection_summary"] = sorted(
-        (compile_group(label, entries) for label, entries in grouped_connections.items()),
-        key=ranking,
-        reverse=True,
-    )
-    for connection in dataset["connection_summary"]:
-        example = grouped_connections[connection["label"]][0]
-        left = fragment_lookup.get(example["left"], {})
-        right = fragment_lookup.get(example["right"], {})
-        connection["left_name"] = left.get("display_name", "Fragment")
-        connection["right_name"] = right.get("display_name", "Fragment")
-        connection["left_image"] = left.get("image")
-        connection["right_image"] = right.get("image")
-        connection["display_name"] = f"{connection['left_name']} ↔ {connection['right_name']}"
+def evaluate(predictor, batch):
+    with predictor.torch.inference_mode():
+        result = predictor.model(batch).reshape(-1)
+    if result.numel() != 1 or not predictor.torch.isfinite(result).all():
+        raise ValueError('Expected one finite model prediction')
+    return float(result.item())
 
 
-HTML_TEMPLATE = r"""<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>FragNet · High-P fragment explorer</title>
-  <style>
-    * { box-sizing: border-box; }
-    body { margin: 0; color: #222; background: white; font: 15px/1.5 Arial, sans-serif; }
-    .wrap { max-width: 1150px; margin: auto; padding: 24px; }
-    h1 { font-size: 28px; margin: 0 0 10px; }
-    h2 { font-size: 19px; margin: 0 0 8px; }
-    .eyebrow, .label, .caption, .section-name, .sub, .legend { color: #555; }
-    .section-name { margin: 18px 0 8px; font-weight: bold; }
-    .formula, .legend, .banner { margin: 12px 0; }
-    .stats, .toolbar, .tabs, .filters, .chips, .connection-pair, .connection-chip-images, .metric-row {
-      display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
-    }
-    .stats { margin: 20px 0; }
-    .stat { min-width: 150px; }
-    .stat .value { font-size: 20px; font-weight: bold; }
-    .panel, .card { border: 1px solid #bbb; padding: 16px; margin: 14px 0; }
-    .toolbar { justify-content: space-between; margin: 18px 0; }
-    button, input, select { color: #222; background: white; border: 1px solid #999; padding: 6px; font: inherit; }
-    button { cursor: pointer; }
-    button.active { border: 2px solid #222; font-weight: bold; }
-    .filter-input { min-width: 190px; }
-    .table-wrap { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 9px; text-align: left; vertical-align: middle; border-bottom: 1px solid #ccc; }
-    .motif-cell, .connection-pair, .connection-unit { display: flex; gap: 10px; align-items: center; }
-    .connection-unit { flex-direction: column; }
-    .thumb { width: 180px; height: 110px; object-fit: contain; }
-    .connection-thumb { width: 135px; height: 90px; object-fit: contain; }
-    .connector { font-size: 20px; }
-    .fragment-name, .signed { font-weight: bold; }
-    .chip { display: inline-flex; flex-direction: column; gap: 4px; align-items: center; padding: 8px; border: 1px solid #ddd; }
-    .fragment-chip img { width: 145px; height: 95px; object-fit: contain; }
-    .connection-chip img { width: 105px; height: 75px; object-fit: contain; }
-    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-    .card { margin: 0; }
-    .card-id, .panel-head { display: flex; justify-content: space-between; }
-    .structure { display: block; width: 100%; height: 260px; object-fit: contain; }
-    .metric-row { margin: 10px 0; }
-    .metric strong { display: block; }
-    .path { overflow-wrap: anywhere; }
-    .empty { padding: 20px; }
-    .hidden { display: none !important; }
-    @media (max-width: 750px) { .grid { grid-template-columns: 1fr; } .wrap { padding: 14px; } }
-  </style>
-</head>
-<body><main class="wrap">
-  <div id="demo-banner" class="banner hidden"><strong>Synthetic demonstration.</strong> These values are not real model predictions. Run the generator without <code>--demo</code> to analyse your checkpoint.</div>
-  <header>
-    <div class="eyebrow">FragNet · structure–property interpretation</div>
-    <h1>What drives high P?</h1>
-    <div class="sub">Find recurring molecular fragments and fragment–fragment connections that increase the model’s predicted <span id="target-name"></span>. Rankings use signed masking contributions, not attention alone.</div>
-    <div class="formula">Contribution = prediction<sub>full</sub> − prediction<sub>masked</sub> <strong>positive → increases P</strong></div>
-  </header>
-  <section class="stats" id="stats"></section>
-  <div id="connection-note" class="banner hidden">This FragNet checkout did not return signed fragment-connection contributions. Connection rows are labelled <strong>attention only</strong>; they must not be interpreted as increasing or decreasing P.</div>
-  <div class="toolbar">
-    <div class="tabs">
-      <button class="active" data-tab="fragments">Fragments</button>
-      <button data-tab="connections">Fragment connections</button>
-      <button data-tab="molecules">Individual molecules</button>
-    </div>
-    <div class="filters">
-      <input class="filter-input" id="search" placeholder="Search fragment number…">
-      <select id="support" aria-label="Minimum molecule support"><option value="1">Support ≥ 1</option><option value="2">Support ≥ 2</option><option value="3">Support ≥ 3</option><option value="5">Support ≥ 5</option><option value="10">Support ≥ 10</option></select>
-      <label class="toggle"><input type="checkbox" id="positive" checked> Positive only</label>
-    </div>
-  </div>
-  <section id="fragments-pane" class="panel"></section>
-  <section id="connections-pane" class="panel hidden"></section>
-  <section id="molecules-pane" class="grid hidden"></section>
-  <div class="legend">Positive contributions indicate fragments predicted to increase P; negative contributions indicate a decrease. Attention-only values describe model focus, without a direction.</div>
-  <details id="metadata"><summary>Model, data source and diagnostics</summary><div id="metadata-body"></div></details>
-</main>
-<script id="report-data" type="application/json">__REPORT_DATA__</script>
-<script>
-(() => {
-  'use strict';
-  const data = JSON.parse(document.getElementById('report-data').textContent);
-  const state = {tab:'fragments', search:'', support:1, positive:true};
-  const $ = id => document.getElementById(id);
-  const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
-  const fmt = value => value == null ? '—' : Number(value).toFixed(3);
-  const signed = value => value == null ? '<span class="neutral">—</span>' : `<span class="signed ${value >= 0 ? 'pos':'neg'}">${value > 0 ? '+':''}${fmt(value)}</span>`;
-  const badge = value => value == null ? '<span class="pill neutral">attention only</span>' : value > 0 ? '<span class="pill pos">increases P</span>' : value < 0 ? '<span class="pill neg">decreases P</span>' : '<span class="pill neutral">neutral</span>';
-  const pct = value => value == null ? '—' : `${Math.round(value * 100)}%`;
-  const searchMatch = text => String(text).toLowerCase().includes(state.search);
 
-  $('target-name').textContent = data.target;
-  if (data.demo) $('demo-banner').classList.remove('hidden');
-  if (!data.signed_connections_available) $('connection-note').classList.remove('hidden');
-  const strongest = data.fragment_summary.find(row => row.mean != null && row.mean > 0);
-  const bestPrediction = Math.max(...data.molecules.map(molecule => molecule.predicted));
-  $('stats').innerHTML = [
-    ['Molecules explained', data.molecules.length],
-    ['Highest predicted P', fmt(bestPrediction)],
-    ['Recurring fragment types', data.fragment_summary.length],
-    ['Strongest fragment', strongest ? `${escape(strongest.display_name)} <span class="pos">+${fmt(strongest.mean)}</span>` : '—'],
-  ].map(([label,value]) => `<article class="stat"><div class="label">${label}</div><div class="value">${value}</div></article>`).join('');
-
-  function summaryRows(rows) {
-    return rows.filter(row => row.support >= state.support && searchMatch(row.display_name) &&
-      (!state.positive || row.mean == null || row.mean > 0));
-  }
-
-  function renderSummary(kind) {
-    const isConnection = kind === 'connections';
-    const rows = summaryRows(isConnection ? data.connection_summary : data.fragment_summary);
-    const heading = isConnection ? 'Fragment combinations associated with high P' : 'Fragments associated with high P';
-    const table = rows.length ? `<div class="table-wrap"><table><thead><tr>
-      <th>${isConnection ? 'Fragment combination' : 'Fragment motif'}</th><th>Mean contribution</th>
-      <th>Median</th><th>Direction</th><th>Positive fraction</th><th>Molecules</th><th>Attention</th>
-      </tr></thead><tbody>${rows.map(row => `<tr><td><div class="motif-cell">
-      ${isConnection ? `<div class="connection-pair"><div class="connection-unit">${row.left_image ? `<img class="connection-thumb" src="${row.left_image}" alt="${escape(row.left_name)} structure">` : ''}<span class="fragment-name">${escape(row.left_name)}</span></div><span class="connector">↔</span><div class="connection-unit">${row.right_image ? `<img class="connection-thumb" src="${row.right_image}" alt="${escape(row.right_name)} structure">` : ''}<span class="fragment-name">${escape(row.right_name)}</span></div></div>` : `${row.image ? `<img class="thumb" src="${row.image}" alt="${escape(row.display_name)} structure">` : ''}<span class="fragment-name">${escape(row.display_name)}</span>`}
-      </div></td><td>${signed(row.mean)}</td>
-      <td>${signed(row.median)}</td><td>${badge(row.mean)}</td><td><div>${pct(row.positive_fraction)}</div>
-      </td>
-      <td>${row.support} <span class="label">/ ${data.molecules.length}</span></td><td>${fmt(row.attention)}</td></tr>`).join('')}</tbody></table></div>` :
-      '<div class="empty">No entries match these filters. Try reducing the support threshold or switching off “Positive only”.</div>';
-    $(kind + '-pane').innerHTML = `<div class="panel-head"><div><h2>${heading}</h2><div class="caption">${rows.length} displayed · support counts distinct molecules</div></div></div>${table}`;
-  }
-
-  function moleculeMatches(molecule) {
-    if (!state.search) return true;
-    return molecule.fragments.some(fragment => searchMatch(fragment.display_name)) ||
-      molecule.connections.some(connection => searchMatch(connection.display_name));
-  }
-
-  function renderMolecules() {
-    const rows = data.molecules.filter(moleculeMatches);
-    $('molecules-pane').innerHTML = rows.length ? rows.map((molecule,index) => {
-      const fragments = molecule.fragments.filter(fragment => !state.positive || (fragment.contribution ?? 0) > 0).slice(0,6);
-      const connections = molecule.connections.filter(connection => !state.positive || connection.contribution == null || connection.contribution > 0).slice(0,5);
-      return `<article class="card"><div class="card-top"><div class="card-id"><span class="eyebrow">High-P molecule ${index + 1}</span><span class="pill ${molecule.error <= 0.3 ? 'pos':'neutral'}">error ${fmt(molecule.error)}</span></div></div>
-      ${molecule.image ? `<img class="structure" src="${molecule.image}" alt="Molecule structure">` : '<div class="empty">Structure image unavailable</div>'}
-      <div class="card-content"><div class="metric-row">
-      <div class="metric"><span class="label">Observed P</span><strong>${fmt(molecule.actual)}</strong></div>
-      <div class="metric"><span class="label">Predicted P</span><strong>${fmt(molecule.predicted)}</strong></div>
-      <div class="metric"><span class="label">Fragments</span><strong>${molecule.fragments.length}</strong></div></div>
-      <div class="section-name">${state.positive ? 'Property-increasing' : 'Signed'} fragments</div>
-      <div class="chips">${fragments.length ? fragments.map(fragment => `<span class="chip fragment-chip">${fragment.image ? `<img src="${fragment.image}" alt="${escape(fragment.display_name)} structure">` : ''}<span class="fragment-name">${escape(fragment.display_name)}</span>${signed(fragment.contribution)}</span>`).join('') : '<span class="caption">No positive fragments identified.</span>'}</div>
-      <div class="section-name">Fragment connections</div><div class="chips">${connections.length ? connections.map(connection => `<span class="chip connection-chip"><span class="connection-chip-images">${connection.left_image ? `<img src="${connection.left_image}" alt="${escape(connection.left_name)} structure">` : ''}<span class="connector">↔</span>${connection.right_image ? `<img src="${connection.right_image}" alt="${escape(connection.right_name)} structure">` : ''}</span><span class="fragment-name">${escape(connection.display_name)}</span>${connection.contribution == null ? '<span class="neutral">attention only</span>' : signed(connection.contribution)}</span>`).join('') : '<span class="caption">No matching fragment connections.</span>'}</div>
-      ${molecule.connection_warning ? `<div class="caption" style="margin-top:10px">Signed connection masking unavailable for this molecule.</div>` : ''}</div></article>`;
-    }).join('') : '<div class="empty">No molecules match this search.</div>';
-  }
-
-  function render() {
-    renderSummary('fragments'); renderSummary('connections'); renderMolecules();
-    ['fragments','connections','molecules'].forEach(tab => {
-      $(tab + '-pane').classList.toggle('hidden', state.tab !== tab);
-      document.querySelector(`[data-tab="${tab}"]`).classList.toggle('active', state.tab === tab);
-    });
-  }
-
-  document.querySelectorAll('[data-tab]').forEach(button => button.addEventListener('click', () => {state.tab = button.dataset.tab; render();}));
-  $('search').addEventListener('input', event => {state.search = event.target.value.toLowerCase().trim(); render();});
-  $('support').addEventListener('change', event => {state.support = Number(event.target.value); render();});
-  $('positive').addEventListener('change', event => {state.positive = event.target.checked; render();});
-  $('metadata-body').innerHTML = `<p><strong>Generated:</strong> ${escape(data.generated_at)}<br><strong>Selection:</strong> highest ${escape(data.rank_by)} ${escape(data.target)}<br><strong>Source molecules:</strong> ${data.dataset_size}<br><strong>Maximum prediction error:</strong> ${data.max_error == null ? 'not filtered' : escape(data.max_error)}</p><p><strong>Checkpoint:</strong><br><span class="path">${escape(data.checkpoint)}</span></p><p><strong>Input split:</strong><br><span class="path">${escape(data.split)}</span></p>${data.warnings.length ? `<p><strong>Non-fatal warnings:</strong> ${data.warnings.length}</p>`:''}`;
-  render();
-})();
-</script>
-</body>
-</html>
-"""
+def evaluate_with_embedding(predictor, batch):
+    vectors = []
+    def capture(module, inputs):
+        vectors.extend(inputs[0].detach().cpu().tolist())
+    hook = predictor.model.fthead.register_forward_pre_hook(capture)
+    try:
+        prediction = evaluate(predictor, batch)
+    finally:
+        hook.remove()
+    if len(vectors) != 1 or not vectors[0] or not all(math.isfinite(x) for x in vectors[0]):
+        raise ValueError('Expected one finite pooled molecular embedding at the regression-head input')
+    return prediction, vectors[0]
 
 
-def render_html(dataset: dict[str, Any]) -> str:
-    serialized = json.dumps(dataset, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
-    # Prevent user-controlled SMILES or paths from terminating the JSON script.
-    serialized = serialized.replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
-    return HTML_TEMPLATE.replace("__REPORT_DATA__", serialized)
+def fragment_prediction(predictor, batch, atom_ids):
+    # Match the existing attribution: mask final atom states before pooling.
+    def mask(module, inputs, outputs):
+        atoms = outputs[0].clone()
+        atoms[atom_ids] = 0
+        return (atoms, *outputs[1:])
+    hook = predictor.model.pretrain.register_forward_hook(mask)
+    try:
+        return evaluate(predictor, batch)
+    finally:
+        hook.remove()
 
 
-def main() -> int:
+def connection_prediction(predictor, batch, pair_index):
+    layers = list(predictor.model.pretrain.layers)
+    if not layers or any(not hasattr(layer, 'frag_bond_mask') for layer in layers):
+        raise RuntimeError('This model does not support signed fragment-connection masking')
+    previous = [layer.frag_bond_mask for layer in layers]
+    try:
+        for layer in layers:
+            layer.frag_bond_mask = pair_index
+        return evaluate(predictor, batch)
+    finally:
+        for layer, value in zip(layers, previous):
+            layer.frag_bond_mask = value
+
+
+def connection_pairs(batch):
+    edges = batch['frag_index'].t().tolist()
+    if batch['x_frags'].shape[0] == 1:
+        return []  # The single-fragment self connection is not a chemical bond.
+    if len(edges) % 2 or len(edges) != batch['node_features_fbonds'].shape[0]:
+        raise ValueError('Unexpected fragment-connection layout; cannot safely mask')
+    pairs = []
+    for i in range(0, len(edges), 2):
+        a, b = edges[i]
+        if edges[i + 1] != [b, a] or a == b:
+            raise ValueError('Expected consecutive forward/reverse fragment connections')
+        pairs.append((i // 2, a, b))
+    return pairs
+
+
+def motif(mol, atoms, chem):
+    selected = set(atoms)
+    cuts = [b.GetIdx() for b in mol.GetBonds()
+            if (b.GetBeginAtomIdx() in selected) != (b.GetEndAtomIdx() in selected)]
+    cut = chem.FragmentOnBonds(mol, cuts, dummyLabels=[(0, 0)] * len(cuts)) if cuts else mol
+    for group in chem.GetMolFrags(cut):
+        originals = {i for i in group if i < mol.GetNumAtoms()}
+        if originals == selected:
+            text = chem.MolFragmentToSmiles(cut, atomsToUse=list(group), canonical=True,
+                                            isomericSmiles=True)
+            fragment = chem.MolFromSmiles(text)
+            if fragment is None:
+                raise ValueError('Could not encode attachment-aware motif')
+            return chem.MolToSmiles(chem.RemoveHs(fragment), isomericSmiles=True)
+    raise ValueError('Fragment atoms do not form one connected motif')
+
+
+def drawing(mol, atoms=(), bonds=(), contribution=0):
+    from rdkit import Chem
+    from rdkit.Chem.Draw import rdMolDraw2D
+    from rdkit.Chem import rdDepictor
+    picture = Chem.Mol(mol)
+    # Map graph indices through hydrogen removal for uncluttered drawings.
+    for atom in picture.GetAtoms():
+        atom.SetIntProp('graph_id', atom.GetIdx())
+    endpoints = [(mol.GetBondWithIdx(i).GetBeginAtomIdx(), mol.GetBondWithIdx(i).GetEndAtomIdx()) for i in bonds]
+    picture = Chem.RemoveHs(picture)
+    mapping = {a.GetIntProp('graph_id'): a.GetIdx() for a in picture.GetAtoms()}
+    atoms = [mapping[i] for i in atoms if i in mapping]
+    bonds = [picture.GetBondBetweenAtoms(mapping[a], mapping[b]).GetIdx()
+             for a, b in endpoints if a in mapping and b in mapping]
+    picture.RemoveAllConformers()
+    rdDepictor.Compute2DCoords(picture)
+    drawer = rdMolDraw2D.MolDraw2DSVG(420, 250)
+    color = ((0.75, 0.75, 0.75) if abs(contribution) < 1e-6 else
+             (0.85, 0.45, 0.30) if contribution > 0 else (0.35, 0.60, 0.85))
+    rdMolDraw2D.PrepareAndDrawMolecule(
+        drawer, picture, highlightAtoms=list(atoms), highlightBonds=list(bonds),
+        highlightAtomColors={i: color for i in atoms}, highlightBondColors={i: color for i in bonds})
+    drawer.FinishDrawing()
+    return drawer.GetDrawingText().split('</svg>')[0] + '</svg>'
+
+
+def explain(predictor, row):
+    from rdkit import Chem
+    capture = CaptureCreator(predictor.creator)
+    graph = predictor.training.one_graph(SimpleNamespace(smiles=row['smiles'], y=0.), capture, predictor.seed)
+    batch = predictor.collate([graph])
+    full, embedding = evaluate_with_embedding(predictor, batch)
+    if not math.isclose(full, row['saved_prediction'], rel_tol=1e-5, abs_tol=1e-4):
+        raise ValueError(f"Prediction mismatch for {row['smiles']}: saved={row['saved_prediction']}, rebuilt={full}")
+    mol = capture.mol
+    ids = batch['atom_to_frag_ids'].tolist()
+    if len(ids) != mol.GetNumAtoms():
+        raise ValueError('Graph/drawing atom indices differ')
+    groups = {f: [i for i, v in enumerate(ids) if v == f] for f in sorted(set(ids))}
+    entries = []
+    for f, atoms in groups.items():
+        masked = fragment_prediction(predictor, batch, atoms)
+        delta = full - masked
+        entries.append(dict(kind='fragment', local_id=str(f), motif=motif(mol, atoms, Chem),
+                            masked_prediction=masked, contribution=delta,
+                            image=drawing(mol, atoms, contribution=delta)))
+    for index, a, b in connection_pairs(batch):
+        bonds = [bond.GetIdx() for bond in mol.GetBonds()
+                 if {ids[bond.GetBeginAtomIdx()], ids[bond.GetEndAtomIdx()]} == {a, b}]
+        if not bonds:
+            raise ValueError('Fragment connection has no corresponding chemical bond')
+        masked = connection_prediction(predictor, batch, index)
+        delta = full - masked
+        entries.append(dict(kind='connection', local_id=f'{a}:{b}',
+                            motif=motif(mol, groups[a] + groups[b], Chem),
+                            masked_prediction=masked, contribution=delta,
+                            image=drawing(mol, bonds=bonds, contribution=delta)))
+    restored = evaluate(predictor, batch)
+    if not math.isclose(restored, full, rel_tol=1e-7, abs_tol=1e-6):
+        raise RuntimeError('Masking changed the unmasked prediction')
+    return dict(row, prediction=full, embedding=embedding, parity_difference=abs(full-row['saved_prediction']),
+                image=drawing(mol), entries=entries)
+
+
+def summarise(molecules, min_support):
+    groups = defaultdict(lambda: defaultdict(list))
+    cohorts = {}
+    for molecule in molecules:
+        cohorts[molecule['smiles']] = molecule['cohort']
+        for entry in molecule['entries']:
+            groups[(entry['kind'], entry['motif'])][molecule['smiles']].append(entry['contribution'])
+    results = []
+    for (kind, key), by_molecule in sorted(groups.items()):
+        values = {s: statistics.mean(v) for s, v in by_molecule.items()}
+        if len(values) < min_support:
+            continue
+        row = dict(kind=kind, motif=key, molecules=len(values),
+                   occurrences=sum(map(len, by_molecule.values())),
+                   mean=statistics.mean(values.values()), median=statistics.median(values.values()),
+                   sd=statistics.stdev(values.values()) if len(values)>1 else 0.,
+                   positive_fraction=sum(v>0 for v in values.values())/len(values))
+        for cohort in ['high', 'low', 'middle']:
+            tail = [v for s, v in values.items() if cohorts[s] == cohort]
+            row[cohort+'_n'] = len(tail)
+            row[cohort+'_mean'] = statistics.mean(tail) if tail else None
+        results.append(row)
+    return sorted(results, key=lambda r: abs(r['mean']), reverse=True)
+
+
+def write_csv(path, rows, fields):
+    with path.open('w', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=fields, extrasaction='ignore')
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def render_html(molecules, summary, metadata):
+    escape = html.escape
+    def fmt(value):
+        return 'not sampled' if value is None else f'{value:.3f}'
+    sections = []
+    for kind in ['fragment', 'connection']:
+        rows = []
+        for entry in [r for r in summary if r['kind'] == kind]:
+            example_m = next(m for m in molecules if any(e['kind']==kind and e['motif']==entry['motif'] for e in m['entries']))
+            example = next(e for e in example_m['entries'] if e['kind']==kind and e['motif']==entry['motif'])
+            rows.append(f"<tr><td>{example['image']}<details><summary>Motif SMILES</summary><code>{escape(entry['motif'])}</code></details></td>"
+                        f"<td>{entry['molecules']}</td><td>{fmt(entry['mean'])}</td><td>{fmt(entry['sd'])}</td>"
+                        f"<td>{entry['positive_fraction']:.0%}</td><td>{fmt(entry['high_mean'])} ({entry['high_n']})</td>"
+                        f"<td>{fmt(entry['low_mean'])} ({entry['low_n']})</td></tr>")
+        sections.append(f'<h2>Recurring {kind}s</h2><div class="scroll"><table><thead><tr>'
+                        '<th>Example in molecular context</th><th>Molecules</th><th>Mean Δ</th><th>SD</th>'
+                        '<th>Positive</th><th>High mean (n)</th><th>Low mean (n)</th></tr></thead><tbody>'+
+                        ''.join(rows)+'</tbody></table></div>' if rows else
+                        f'<h2>Recurring {kind}s</h2><p>No motifs meet the support threshold.</p>')
+    details = []
+    for i, m in enumerate(molecules, 1):
+        entries = ''.join(f"<tr><td>{e['kind']} {escape(e['local_id'])}</td><td>{e['image']}</td>"
+                          f"<td>{fmt(e['contribution'])}</td><td>{fmt(e['masked_prediction'])}</td></tr>"
+                          for e in sorted(m['entries'], key=lambda e: abs(e['contribution']), reverse=True))
+        details.append(f"<details><summary>Molecule {i} · {m['cohort']} · predicted log P {fmt(m['prediction'])}</summary>"
+                       f"{m['image']}<p><code>{escape(m['smiles'])}</code></p><table><thead><tr>"
+                       '<th>Component</th><th>Highlighted context</th><th>Δ</th><th>Masked prediction</th>'
+                       f'</tr></thead><tbody>{entries}</tbody></table></details>')
+    return '''<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>FragNet fragment analysis</title><style>
+body{font:16px/1.5 Georgia,serif;color:#222;background:white;max-width:1150px;margin:32px auto;padding:0 20px}
+h1,h2,summary,th{font-family:Arial,sans-serif}h1{font-size:26px}h2{font-size:20px;margin-top:32px}
+table{border-collapse:collapse;width:100%;font-size:14px}th,td{border-bottom:1px solid #ddd;padding:10px;text-align:left;vertical-align:middle}
+th{background:#f4f4f4}svg{max-width:100%;height:auto;width:340px}code{overflow-wrap:anywhere;font-size:12px}
+.scroll{overflow:auto}details{border-top:1px solid #ccc;padding:12px 0}summary{cursor:pointer}small{color:#555}
+@media print{details{break-inside:avoid}body{max-width:none}}
+</style><h1>FragNet fragment analysis</h1>'''+f"<p>{len(molecules)} unique molecules; target: log_P_upconversion. Selection: {escape(metadata['selection'])}.</p>"+'''
+<p>Δ = prediction(full) − prediction(masked), in log-property units. Orange supports a higher prediction;
+blue supports a lower prediction; grey is near zero. Summary drawings show one example occurrence,
+whose sign may differ from the mean across molecules.</p>
+<p>Fragment masking zeros final atom states before pooling; fragment states remain. Connection masking zeros
+both directed connection states in every layer. Neither operation deletes atoms or breaks a chemical bond.
+These are model sensitivities, not additive contributions, causal effects or confidence estimates.</p>
+<p>Summary means give each distinct molecule equal weight after averaging repeated occurrences within it.
+SD describes variation between molecules; Positive is the fraction with mean Δ &gt; 0.
+High/low groups are the top/bottom 20% ranked by predicted log P, rounded down to whole molecules.
+Equal predictions are ordered by canonical SMILES. The middle group contributes to overall statistics;
+--top-n optionally samples the extremes within these 20% groups. Unlisted motifs may have insufficient support.
+Connection motifs describe the joined fragment pair and its remaining attachment sites.</p>
+<p>embeddings.csv contains the native pooled molecular vectors passed to the regression head, without PCA or normalisation.</p>'''+''.join(sections)+'<h2>Individual molecules</h2>'+''.join(details)+f'''
+<h2>Run details</h2><small><pre style="white-space:pre-wrap;overflow-wrap:anywhere">{escape(json.dumps(metadata, indent=2))}</pre></small></html>'''
+
+
+
+def collect_predictions(paths, destination, checkpoint):
+    fields = ['source_file', 'source_line', 'checkpoint_sha256', 'oracle_call',
+              'encoding', 'smiles', TARGET, 'prediction_ok', 'prediction_error']
+    records = []
+    for path in dict.fromkeys(p.resolve() for p in paths):
+        summary = path.parent / 'run_summary.json'
+        recorded = json.loads(summary.read_text()).get('checkpoint_sha256') if summary.exists() else None
+        if recorded and recorded != checkpoint:
+            raise ValueError(f'Checkpoint differs from generation run: {path}')
+        with path.open(newline='') as handle:
+            reader = csv.DictReader(handle)
+            if not {'smiles', TARGET, 'prediction_ok'} <= set(reader.fieldnames or []):
+                raise ValueError(f'Not a FragNet prediction history: {path}')
+            for line, row in enumerate(reader, 2):
+                source_hash = row.get('checkpoint_sha256') or recorded or ''
+                if source_hash and source_hash != checkpoint:
+                    raise ValueError(f'Mixed predictor checkpoints in {path}, line {line}')
+                records.append({**row, 'source_file': row.get('source_file') or str(path),
+                                'source_line': row.get('source_line') or line,
+                                'checkpoint_sha256': source_hash})
+    if not records:
+        raise ValueError('Input histories are empty')
+    write_csv(destination, records, fields)
+    return len(records)
+
+
+def main():
     args = parse_args()
-    dataset = build_demo_dataset(args) if args.demo else build_real_dataset(args)
-    summarize(dataset)
-    if args.output is not None:
-        destination = args.output.expanduser().resolve()
-    elif args.demo:
-        destination = Path.cwd() / "fragnet_fragment_demo.html"
-    else:
-        destination = args.root.expanduser().resolve() / "explainability" / "fragnet_fragment_report.html"
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_text(render_html(dataset), encoding="utf-8")
+    if args.output.exists() and any(args.output.iterdir()):
+        raise ValueError('Output directory is not empty; choose a new directory')
+    sys.path.insert(0, str(ROOT))
+    from generate_molecules import Predictor, digest
+    with open(os.devnull, 'w') as quiet, contextlib.redirect_stdout(quiet):
+        predictor = Predictor(args.root, args.fragnet_dir, args.threads)
+    args.output.mkdir(parents=True, exist_ok=True)
+    shared = args.output / 'full_history_generated.csv'
+    collected = collect_predictions(args.input, shared, predictor.checkpoint_hash)
+    if args.collect_only:
+        print(f'Collected {collected} evaluations: {shared}')
+        return
+    rows, excluded = read_candidates(shared, predictor.training.molecule_identity)
+    selected = select_candidates(rows, args.top_n, args.select)
+    molecules = []
+    for i, row in enumerate(selected, 1):
+        print(f"Explaining {i}/{len(selected)} ({row['cohort']})", flush=True)
+        with open(os.devnull, 'w') as quiet, contextlib.redirect_stdout(quiet):
+            molecules.append(explain(predictor, row))
+    dimensions = {len(m['embedding']) for m in molecules}
+    if len(dimensions) != 1:
+        raise ValueError('Inconsistent molecular embedding dimensions')
+    embedding_dimension = dimensions.pop()
+    summary = summarise(molecules, args.min_support)
+    metadata = dict(inputs={str(p.resolve()): digest(p) for p in args.input},
+                    collected_evaluations=collected, shared_history_sha256=digest(shared),
+                    checkpoint_sha256=predictor.checkpoint_hash, config_sha256=digest(args.root/'fragnet_selected.yaml'),
+                    script_sha256=digest(Path(__file__)), predictor_script_sha256=digest(ROOT/'generate_molecules.py'),
+                    training_helper_sha256=digest(Path(predictor.training.__file__)), graph_seed=predictor.seed,
+                    selection=args.select if args.top_n else 'all; top/bottom 20% comparison', requested_per_tail=args.top_n,
+                    cohort_rule='rank by saved prediction, then canonical isomeric SMILES; floor(N/5) per tail',
+                    tail_fraction=0.2, population_tail_count=len(rows)//5,
+                    population_cohort_counts=dict(high=len(rows)//5, low=len(rows)//5,
+                                                  middle=len(rows)-2*(len(rows)//5)),
+                    embedding_dimension=embedding_dimension,
+                    embedding_location='native pooled atom/fragment concatenation at fthead input',
+                    embedding_transform=None,
+                    accepted_unique=len(rows), explained=len(molecules), excluded_rows=len(excluded),
+                    selected_ranges={c: [min(m['prediction'] for m in molecules if m['cohort']==c),
+                                         max(m['prediction'] for m in molecules if m['cohort']==c)]
+                                     for c in sorted({m['cohort'] for m in molecules})},
+                    min_support=args.min_support, max_parity_difference=max(m['parity_difference'] for m in molecules),
+                    parity_rtol=1e-5, parity_atol=1e-4)
+    args.output.mkdir(parents=True, exist_ok=True)
+    flat = [dict(molecule_id=i, smiles=m['smiles'], cohort=m['cohort'], prediction=m['prediction'],
+                 **{k:v for k,v in e.items() if k!='image'})
+            for i,m in enumerate(molecules,1) for e in m['entries']]
+    write_csv(args.output/'contributions.csv', flat,
+              ['molecule_id','smiles','cohort','prediction','kind','local_id','motif','masked_prediction','contribution'])
+    embedding_columns = [f'embedding_{i}' for i in range(embedding_dimension)]
+    write_csv(args.output/'embeddings.csv',
+              [dict(smiles=m['smiles'], cohort=m['cohort'], prediction=m['prediction'],
+                    **dict(zip(embedding_columns, m['embedding']))) for m in molecules],
+              ['smiles','cohort','prediction',*embedding_columns])
+    fields = ['kind','motif','molecules','occurrences','mean','median','sd','positive_fraction',
+              'high_n','high_mean','low_n','low_mean','middle_n','middle_mean']
+    write_csv(args.output/'motif_summary.csv', summary, fields)
+    if excluded:
+        write_csv(args.output/'excluded.csv', excluded, ['line','smiles','reason'])
+    (args.output/'summary.json').write_text(json.dumps(metadata, indent=2)+'\n')
+    (args.output/'report.html').write_text(render_html(molecules, summary, metadata))
+    print(f"Report: {args.output/'report.html'}")
 
-    positive_fragments = sum(
-        1 for fragment in dataset["fragment_summary"] if (fragment.get("mean") or 0) > 0
-    )
-    positive_connections = sum(
-        1 for connection in dataset["connection_summary"] if (connection.get("mean") or 0) > 0
-    )
-    print(f"Saved {destination}")
-    print(f"Molecules: {len(dataset['molecules'])}; positive fragments: {positive_fragments}; "
-          f"positive connections: {positive_connections}")
-    if not dataset["signed_connections_available"]:
-        print("Connection contributions unavailable; attention-only values are labelled.")
-    return 0
 
-
-if __name__ == "__main__":
-    raise SystemExit(main())
-
+if __name__ == '__main__':
+    main()
