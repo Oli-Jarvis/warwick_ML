@@ -117,7 +117,9 @@ python fragnet_analysis/embeddings.py \
   --output nmo_fragnet_generation/generated_analysis --min-support 5
 ```
 
-`report.html` displays signed fragment/connection effects:
+`report.html` displays signed effects for the BRICS fragments used by FragNet
+during training and their connections; fragment sizes follow the chemical bond-cutting
+rules rather than a fixed radius or atom count:
 Δ = prediction(full) − prediction(masked). Positive/orange supports higher
 predicted log-property; negative/blue supports lower values. Fragment masking
 suppresses final atom states while retaining fragment states; connection masking
@@ -129,8 +131,9 @@ Motif summaries average repeated occurrences within each molecule, then weight
 molecules equally. Support counts distinct molecules;
 `--min-support 5` requires five per summary motif without restricting individual
 analysis. SD reports between-molecule variation; Positive is the fraction with
-positive mean Δ. High/low groups lie above/below the median prediction; ties
-remain in overall summaries. Drawings show individual examples.
+positive mean Δ. High/low groups are the top/bottom 20% ranked by predicted
+log-upconversion, rounded down; ties are ordered by canonical SMILES. All molecules,
+including the middle 60%, contribute to overall summaries. Drawings show individual examples.
 `contributions.csv` stores individual effects, `motif_summary.csv` stores summaries,
 and small audit files record checks and exclusions. The shared history retains
 repeats, failures and source information; original NMO histories retain fitness
