@@ -32,6 +32,12 @@ geometry quantities used by NMO's original scaling; this is therefore not the fu
 geometry-scaled xTB objective. High predicted property and high fitness are
 different rankings. Clustering is subsequent analysis and does not direct search.
 
+To favour lower predicted upconversion, change `log_P_upconversion+5.0` to
+`5.0-log_P_upconversion` in `FITNESS` in `generate_molecules.py`; this retains the
+SA/rotatable-bond penalties and original prediction sign, without retraining either
+model. The offset 5 sets the reward transition region; check the reward range
+before a longer run and compare objectives using matched budgets and seeds.
+
 The prior is the saved starting generator, pretrained using the NMO suite's
 pretraining routine and underlying logic, with `translated_smiles.smi` and
 `Voc_adapted` (six epochs, batch size 128, initial Adam learning rate 0.0005).
@@ -101,7 +107,8 @@ remain fixed. These representatives describe cluster centres, not highest perfor
 
 `fragnet_analysis/embeddings.py` combines automatically recorded per-run
 predictions into `full_history_generated.csv` and analyses all successful unique
-molecules, checking agreement with the generation predictor. Run in `fragnet`:
+molecules, checking agreement with the generation predictor and rejecting conflicting
+predictions or different known checkpoints. Run in `fragnet`:
 
 ```bash
 python fragnet_analysis/embeddings.py \
@@ -112,11 +119,13 @@ python fragnet_analysis/embeddings.py \
 `report.html` displays signed fragment/connection effects:
 Δ = prediction(full) − prediction(masked). Positive/orange supports higher
 predicted log-property; negative/blue supports lower values. Fragment masking
-suppresses final atom states; connection masking suppresses directed connection
-states across layers. These are model sensitivities, not chemical deletions or
-causal contributions.
+suppresses final atom states while retaining fragment states; connection masking
+suppresses directed connection states across layers. These are model sensitivities,
+not additive property components, chemical deletions, causal effects or explanations
+of SA/rotatable-bond penalties.
 
-Motif summaries weight molecules equally. Support counts distinct molecules;
+Motif summaries average repeated occurrences within each molecule, then weight
+molecules equally. Support counts distinct molecules;
 `--min-support 5` requires five per summary motif without restricting individual
 analysis. SD reports between-molecule variation; Positive is the fraction with
 positive mean Δ. High/low groups lie above/below the median prediction; ties
@@ -125,6 +134,7 @@ remain in overall summaries. Drawings show individual examples.
 and small audit files record checks and exclusions. The shared history retains
 repeats, failures and source information; original NMO histories retain fitness
 and SA. Rebuild into a fresh output directory when adding runs.
+Generated-set summaries reflect the search objective, rather than unbiased motif enrichment.
 
 `fragnet_analysis/neighbours.py` and `tanimoto_similarity/` retain the
 previous similarity tools and results; their limitations are noted below.
@@ -206,7 +216,7 @@ matching manifest together.
 | Environment | Use and principal dependencies |
 | --- | --- |
 | `nmo` | Generation/pretraining; NMO dependencies, PyTorch, RDKit, NumPy, pandas, Matplotlib, tqdm, GGS and group-selfies. |
-| `fragnet` | Prediction, training and mapping; PyTorch/PyG, torch-scatter, RDKit, NumPy, pandas, PyYAML, NetworkX, SciPy, scikit-learn, LMDB; ASE, DScribe and Plotly for mapping. |
+| `fragnet` | Prediction, training, fragment analysis and mapping; PyTorch/PyG, torch-scatter, RDKit, NumPy, pandas, PyYAML, NetworkX, SciPy, scikit-learn, LMDB; ASE, DScribe and Plotly for mapping. |
 
 The batch selects the environments. Mapping requires reference-compatible RDKit,
 scikit-learn and DScribe versions; equivalent version spellings are accepted.
@@ -248,6 +258,15 @@ Find and validate a similarity measure that helps identify when a candidate is
 poorly represented by the training data. Assess its relationship to held-out
 prediction errors before using it to prioritise generated molecules or interpret
 fragment contributions. Chemical similarity alone is not a confidence estimate.
+
+### Other physical targets
+
+The [NMO benchmark](https://arxiv.org/abs/2606.30170) includes phonon heat transport
+(low thermal conductance, `k_ph`) and thermoelectric transport (high `ZT`) alongside
+upconversion. Extending this workflow requires target-specific training data and a
+validated predictor, appropriate reward scaling and geometry/anchoring constraints,
+and a reference with the corresponding property; editing the reward alone cannot
+make the current upconversion model predict transport.
 
 ### DFT fine-tuning
 
