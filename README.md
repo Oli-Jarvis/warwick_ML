@@ -128,6 +128,12 @@ Keep the main scripts at the project root alongside `NMO_source_code/`,
 shared functions. If moving the project, update paths in the batch script and
 pretraining INI.
 
+`generate_molecules.py` provides three commands: `generate` runs NMO generation
+with FragNet scoring, `verify` checks agreement with saved training predictions,
+and `predict` scores an existing molecule CSV without generation. The normal
+`generate_and_map.sbatch` runs verification, generation and mapping automatically;
+standalone `predict` is not required for generated molecules.
+
 | Step / script | Inputs | Main outputs |
 | --- | --- | --- |
 | Generate: `generate_molecules.py` | Existing `prior.pt` + `prior_manifest.json`, matching `Voc_adapted`, FragNet `ft.pt` + YAML, seed and evaluation budget. No molecule CSV is required. | `generation/full_history.csv` (search history/fitness), `fragnet_predictions.csv` (SMILES, predicted log-property and failure status), `agent_final.pt` (updated generator). |
