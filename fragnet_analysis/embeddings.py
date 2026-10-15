@@ -102,6 +102,21 @@ def evaluate(predictor, batch):
     return float(result.item())
 
 
+
+def evaluate_with_embedding(predictor, batch):
+    vectors = []
+    def capture(module, inputs):
+        vectors.extend(inputs[0].detach().cpu().tolist())
+    hook = predictor.model.fthead.register_forward_pre_hook(capture)
+    try:
+        prediction = evaluate(predictor, batch)
+    finally:
+        hook.remove()
+    if len(vectors) != 1 or not vectors[0] or not all(math.isfinite(x) for x in vectors[0]):
+        raise ValueError('Expected one finite pooled molecular embedding at the regression-head input')
+    return prediction, vectors[0]
+
+
 def fragment_prediction(predictor, batch, atom_ids):
     # Match the existing attribution: mask final atom states before pooling.
     def mask(module, inputs, outputs):
@@ -192,7 +207,7 @@ def explain(predictor, row):
     capture = CaptureCreator(predictor.creator)
     graph = predictor.training.one_graph(SimpleNamespace(smiles=row['smiles'], y=0.), capture, predictor.seed)
     batch = predictor.collate([graph])
-    full = evaluate(predictor, batch)
+    full, embedding = evaluate_with_embedding(predictor, batch)
     if not math.isclose(full, row['saved_prediction'], rel_tol=1e-5, abs_tol=1e-4):
         raise ValueError(f"Prediction mismatch for {row['smiles']}: saved={row['saved_prediction']}, rebuilt={full}")
     mol = capture.mol
@@ -221,7 +236,7 @@ def explain(predictor, row):
     restored = evaluate(predictor, batch)
     if not math.isclose(restored, full, rel_tol=1e-7, abs_tol=1e-6):
         raise RuntimeError('Masking changed the unmasked prediction')
-    return dict(row, prediction=full, parity_difference=abs(full-row['saved_prediction']),
+    return dict(row, prediction=full, embedding=embedding, parity_difference=abs(full-row['saved_prediction']),
                 image=drawing(mol), entries=entries)
 
 
@@ -305,7 +320,8 @@ SD describes variation between molecules; Positive is the fraction with mean Δ 
 High/low groups are the top/bottom 20% ranked by predicted log P, rounded down to whole molecules.
 Equal predictions are ordered by canonical SMILES. The middle group contributes to overall statistics;
 --top-n optionally samples the extremes within these 20% groups. Unlisted motifs may have insufficient support.
-Connection motifs describe the joined fragment pair and its remaining attachment sites.</p>'''+''.join(sections)+'<h2>Individual molecules</h2>'+''.join(details)+f'''
+Connection motifs describe the joined fragment pair and its remaining attachment sites.</p>
+<p>embeddings.csv contains the native pooled molecular vectors passed to the regression head, without PCA or normalisation.</p>'''+''.join(sections)+'<h2>Individual molecules</h2>'+''.join(details)+f'''
 <h2>Run details</h2><small><pre style="white-space:pre-wrap;overflow-wrap:anywhere">{escape(json.dumps(metadata, indent=2))}</pre></small></html>'''
 
 
@@ -357,6 +373,10 @@ def main():
         print(f"Explaining {i}/{len(selected)} ({row['cohort']})", flush=True)
         with open(os.devnull, 'w') as quiet, contextlib.redirect_stdout(quiet):
             molecules.append(explain(predictor, row))
+    dimensions = {len(m['embedding']) for m in molecules}
+    if len(dimensions) != 1:
+        raise ValueError('Inconsistent molecular embedding dimensions')
+    embedding_dimension = dimensions.pop()
     summary = summarise(molecules, args.min_support)
     metadata = dict(inputs={str(p.resolve()): digest(p) for p in args.input},
                     collected_evaluations=collected, shared_history_sha256=digest(shared),
@@ -368,6 +388,9 @@ def main():
                     tail_fraction=0.2, population_tail_count=len(rows)//5,
                     population_cohort_counts=dict(high=len(rows)//5, low=len(rows)//5,
                                                   middle=len(rows)-2*(len(rows)//5)),
+                    embedding_dimension=embedding_dimension,
+                    embedding_location='native pooled atom/fragment concatenation at fthead input',
+                    embedding_transform=None,
                     accepted_unique=len(rows), explained=len(molecules), excluded_rows=len(excluded),
                     selected_ranges={c: [min(m['prediction'] for m in molecules if m['cohort']==c),
                                          max(m['prediction'] for m in molecules if m['cohort']==c)]
@@ -380,6 +403,11 @@ def main():
             for i,m in enumerate(molecules,1) for e in m['entries']]
     write_csv(args.output/'contributions.csv', flat,
               ['molecule_id','smiles','cohort','prediction','kind','local_id','motif','masked_prediction','contribution'])
+    embedding_columns = [f'embedding_{i}' for i in range(embedding_dimension)]
+    write_csv(args.output/'embeddings.csv',
+              [dict(smiles=m['smiles'], cohort=m['cohort'], prediction=m['prediction'],
+                    **dict(zip(embedding_columns, m['embedding']))) for m in molecules],
+              ['smiles','cohort','prediction',*embedding_columns])
     fields = ['kind','motif','molecules','occurrences','mean','median','sd','positive_fraction',
               'high_n','high_mean','low_n','low_mean','middle_n','middle_mean']
     write_csv(args.output/'motif_summary.csv', summary, fields)
