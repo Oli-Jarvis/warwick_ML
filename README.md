@@ -26,19 +26,17 @@ F=\frac14\log_{10}(1+10^c)
 \frac{1}{1+\exp[2(r-3.5)]},\qquad c=\operatorname{clip}(y+5,-50,80).
 $$
 
-This favours higher predicted upconversion, lower SA and fewer rotatable bonds;
-length and area penalties are disabled. High predicted property and high fitness
-are therefore different rankings. Clustering is subsequent analysis and does
-not direct the search.
+This favours higher predicted upconversion, lower SA and fewer rotatable bonds.
+Length/area weights are zero because the FragNet workflow does not calculate the
+geometry quantities used by NMO's original scaling; this is therefore not the full
+geometry-scaled xTB objective. High predicted property and high fitness are
+different rankings. Clustering is subsequent analysis and does not direct search.
 
-The prior is the saved starting generator. The supplied three-layer RNN
-(hidden size 512, maximum sequence length 140) was pretrained on
-`translated_smiles.smi` with `Voc_adapted`, minimising negative sequence
-log-likelihood without property labels. Settings: six epochs, batch size 128,
-initial Adam learning rate 0.0005, masking and descriptor prediction disabled.
-An epoch is one pass through the training dataset. Normal runs reuse this
-prior; changing the generation seed or property predictor does not itself require
-pretraining again.
+The prior is the saved starting generator, pretrained using the NMO suite's
+pretraining routine and underlying logic, with `translated_smiles.smi` and
+`Voc_adapted` (six epochs, batch size 128, initial Adam learning rate 0.0005).
+Normal runs reuse it; changing the generation seed or predictor does not itself
+require pretraining again.
 
 ## Predictor and performance
 
@@ -56,7 +54,8 @@ specified tetrahedral and double-bond stereochemistry.
 | Regularisation | Dropout 0.25; no learning-rate scheduler |
 | Training | Seed 123; limit 10,000 epochs; stop after 100 epochs without validation improvement |
 
-The selected checkpoint is from epoch 100, with the lowest validation MSE.
+An epoch is one pass through the training dataset. The selected checkpoint is
+from epoch 100, with the lowest validation MSE.
 Test data were not used for selection.
 
 | Split | Molecules | MAE | RMSE | R² | Spearman ρ |
