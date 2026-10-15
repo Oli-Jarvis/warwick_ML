@@ -46,10 +46,12 @@ require pretraining again.
 
 ## Predictor and performance
 
-FragNet was trained on combined SMILES/GGS xTB-derived `log_P_upconversion`.
-Molecules differing only in stereochemistry stay in the same split. Targets are
-the mean of distinct observed values per canonical isomeric SMILES; graphs retain
-specified tetrahedral and double-bond stereochemistry.
+FragNet was trained on xTB-derived `log_P_upconversion` from the combined SMILES
+and GGS run histories. After cleaning and deduplication across runs and datasets,
+each canonical isomeric SMILES appears once, giving 39,696 accepted unique molecules
+across training, validation and test. Repeated molecules receive the mean of their
+distinct observed target values. Molecules differing only in stereochemistry stay
+in the same split; graphs retain specified tetrahedral and double-bond stereochemistry.
 
 | Setting | Value |
 | --- | --- |
