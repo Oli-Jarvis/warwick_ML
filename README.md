@@ -31,6 +31,28 @@ length and area penalties are disabled. High predicted property and high fitness
 are therefore different rankings. Clustering is subsequent analysis and does
 not direct the search.
 
+To favour low upconversion, edit `FITNESS` near the top of
+`generate_molecules.py`: change `log_P_upconversion+5.0` to
+`5.0-log_P_upconversion`. Keep the positive reward transform and SA/rotatable-bond
+penalties. The offset 5 sets the transition region and should be checked against
+the prediction range before a longer run. Predictions and plot axes retain their
+original sign. Compare high/low searches from the same prior with matched budgets
+and seeds; no predictor or prior retraining is needed for this change.
+
+Low property is different from low total fitness: the latter can also mean poor
+SA, many rotatable bonds or failed evaluation. For a deliberate low-fitness control,
+append this line immediately after the original `FITNESS` definition:
+
+```python
+FITNESS = f"1.0/(1.0+({FITNESS}))"
+```
+
+This rewards valid molecules with low original total fitness; the existing
+failure/constraint checks still give failures zero reward. This reverses the
+preference for the penalties too, so it
+is not the choice for finding low-upconversion, synthetically accessible molecules.
+The default generation objective remains high upconversion.
+
 The prior is the saved starting generator. The supplied three-layer RNN
 (hidden size 512, maximum sequence length 140) was pretrained on
 `translated_smiles.smi` with `Voc_adapted`, minimising negative sequence
@@ -91,17 +113,46 @@ seven clustering dimensions. Reference properties are xTB-derived; candidate
 properties are predictions. Assignment distances help identify distant candidates
 but are not calibrated uncertainty estimates.
 
-`fragnet_analysis/embeddings.py` produces fragment-masking reports, with
-contribution defined as `prediction(full) − prediction(masked)`. Positive values
-support the predicted log-property. Signed fragment-connection contributions are
-included where available; attention-only scores do not indicate direction.
+### Fragment and connection analysis
 
-The report currently reads saved dataset splits. Applying it to generated
-candidates requires adapting its inputs and checking that unmasked predictions
-match the generation predictor. It is a separate analysis step; contributions
-explain model behaviour, not the SA/rotatable-bond penalties or a proven chemical
-mechanism. `fragnet_analysis/neighbours.py` and `tanimoto_similarity/` retain the
-previous similarity tools and results; their limitations are noted below.
+In the `fragnet` environment, from the project root:
+
+```bash
+RUN=nmo_fragnet_generation/runs/seed123_job6367813
+python fragnet_analysis/embeddings.py \
+  --input "$RUN/generation/fragnet_predictions.csv" \
+  --output "$RUN/fragments" --top-n 10
+```
+
+This compares up to ten highest and ten lowest predicted unique molecules, with
+no overlap. `--select high` or `--select low` chooses one tail; `--top-n 0` explains
+all successful unique molecules. These are rankings within this run, not measured
+performance or total fitness. Failed rows and canonical isomeric duplicates are
+excluded. Unmasked predictions must match the saved predictions before results
+are written (absolute tolerance 1e-4, relative tolerance 1e-5).
+
+The offline `report.html` contains recurring motifs and expandable molecule
+reports. Orange/positive Δ supports higher predicted log-property; blue/negative Δ
+supports lower values; grey is near zero. Summary drawings show one occurrence,
+not the aggregate effect. Δ = full prediction − masked prediction.
+Fragment masking zeros the fragment's final atom states before pooling, retaining
+the fragment states. Connection masking zeros both directed connection states in
+every layer. Neither operation removes atoms or chemically cleaves a bond.
+
+Summary means first average repeated occurrences within each molecule, then give
+each molecule equal weight. Support is the number of distinct molecules; SD is
+between-molecule variation; Positive is the fraction with positive mean Δ.
+High/low columns give the mean and support in each selected tail. By default,
+summary motifs require two molecules (`--min-support`); all occurrences remain
+in `contributions.csv`. `motif_summary.csv` contains the summary statistics;
+`summary.json` records model/input hashes and prediction agreement. `excluded.csv`
+is written only when rows were excluded. No embeddings or graph caches are saved.
+
+Motifs retain attachment sites (`*` in the CSV); connection motifs represent joined
+fragment pairs. These are context-dependent model sensitivities, not additive
+property components, causal effects or confidence estimates. Use recurring signed
+effects to propose matched substitutions for explicit xTB/DFT testing. Selecting
+only the extremes does not establish enrichment across the whole dataset.
 
 ## Files and running
 
@@ -117,6 +168,7 @@ pretraining INI.
 | Verify: `generate_molecules.py verify` | FragNet checkpoint/YAML, `graph_data/train.pkl`, `experiment/train_predictions.csv`. | Prediction agreement checks in `run.log`; stops on mismatch. |
 | Predict: `generate_molecules.py predict` | CSV with `smiles`; FragNet checkpoint/YAML. | `predictions.csv` with `fragnet_log_P_upconversion`, success/failure status and reasons; `prediction_manifest.json`. |
 | Map: `map_chemical_space.py` | Prediction CSV with `smiles` and `fragnet_log_P_upconversion`; `reference.pkl` + `reference.html`. | `space/candidates_in_space.csv` (coordinates, clusters and distances), `candidates_in_space.html`, mapping summary and rejections if any. |
+| Explain: `fragnet_analysis/embeddings.py` | Generation prediction CSV and the same FragNet checkpoint/configuration. | `fragments/report.html`, occurrence and motif-summary CSVs, small audit files. |
 | Pretrain (optional): `pretrain_generator.py` | `pretrain.ini`, existing NMO `translated_smiles.smi` and `Voc_adapted`. | New `prior.pt` and validity/atom-count diagnostics in the configured output directory. |
 
 FragNet inputs are under `fragnet_config_details/`: `fragnet_selected.yaml`,
@@ -178,7 +230,7 @@ matching manifest together.
 | Environment | Use and principal dependencies |
 | --- | --- |
 | `nmo` | Generation/pretraining; NMO dependencies, PyTorch, RDKit, NumPy, pandas, Matplotlib, tqdm, GGS and group-selfies. |
-| `fragnet` | Prediction, training and mapping; PyTorch/PyG, torch-scatter, RDKit, NumPy, pandas, PyYAML, NetworkX, SciPy, scikit-learn, LMDB; ASE, DScribe and Plotly for mapping. |
+| `fragnet` | Prediction, training, fragment analysis and mapping; PyTorch/PyG, torch-scatter, RDKit, NumPy, pandas, PyYAML, NetworkX, SciPy, scikit-learn, LMDB; ASE, DScribe and Plotly for mapping. |
 
 The batch selects the environments. Mapping requires reference-compatible RDKit,
 scikit-learn and DScribe versions; equivalent version spellings are accepted.
@@ -221,6 +273,18 @@ poorly represented by the training data. Assess its relationship to held-out
 prediction errors before using it to prioritise generated molecules or interpret
 fragment contributions. Chemical similarity alone is not a confidence estimate.
 
+### Other physical targets
+
+The [NMO benchmark](https://arxiv.org/abs/2606.30170) defines three task families:
+optomechanics (upconversion), phonon heat transport (low thermal conductance
+`k_ph`) and thermoelectric transport (high `ZT`). Extend the reward to the latter
+two using their task definitions and constraints. A reward edit alone cannot make
+the upconversion checkpoint predict transport: obtain consistent labels, train
+and validate a target-specific predictor, then update the oracle interface,
+normalisation/units, anchoring and output labels. Preserve the appropriate
+length/geometry constraints and construct a reference with the new property.
+These targets are planned; the current scripts predict only upconversion.
+
 ### DFT fine-tuning
 
 Approximately 200 molecules already have DFT data. Fine-tune the xTB-trained
@@ -238,3 +302,4 @@ The SCRTP pilot completed generation and mapping: 256 oracle evaluations,
 39 failures and 216 unique successfully mapped molecules. The saved/rebuilt
 five-molecule prediction check also passed. This confirms end-to-end execution;
 it does not establish molecular novelty or prediction accuracy.
+
