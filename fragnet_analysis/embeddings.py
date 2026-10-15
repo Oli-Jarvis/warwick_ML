@@ -24,7 +24,7 @@ def parse_args():
     p.add_argument('--output', required=True, type=Path)
     p.add_argument('--root', type=Path, default=ROOT / 'fragnet_config_details')
     p.add_argument('--fragnet-dir', type=Path, default=ROOT / 'fragnet_source_code')
-    p.add_argument('--top-n', type=int, default=0, help='Molecules per tail; default 0 analyses all')
+    p.add_argument('--top-n', type=int, default=0, help='Maximum molecules per 20%% tail; default 0 analyses all')
     p.add_argument('--select', choices=['both', 'high', 'low'], default='both')
     p.add_argument('--min-support', type=int, default=2, help='Distinct molecules per summary motif')
     p.add_argument('--threads', type=int, default=1)
@@ -67,18 +67,18 @@ def read_candidates(path, identity):
 
 
 def select_candidates(rows, top_n, selection):
+    ranked = sorted(rows, key=lambda r: (r['saved_prediction'], r['smiles']))
+    n = len(ranked) // 5
+    labelled = [dict(r, cohort=('low' if i < n else
+                               'high' if n and i >= len(ranked)-n else 'middle'))
+                for i, r in enumerate(ranked)]
     if top_n == 0:
-        median = statistics.median(r['saved_prediction'] for r in rows)
-        return [dict(r, cohort=('low' if r['saved_prediction'] < median else
-                               'high' if r['saved_prediction'] > median else 'middle')) for r in rows]
-    if selection != 'both':
-        chosen = rows[:top_n] if selection == 'low' else rows[-top_n:][::-1]
-        return [dict(r, cohort=selection) for r in chosen]
-    if len(rows) < 2:
-        raise ValueError('Need at least two molecules for distinct high and low tails')
-    n = min(top_n, len(rows) // 2)
-    return ([dict(r, cohort='high') for r in rows[-n:][::-1]] +
-            [dict(r, cohort='low') for r in rows[:n]])
+        return labelled
+    if n == 0:
+        raise ValueError('At least five unique molecules are required for 20% tail selection')
+    low = labelled[:min(n, top_n)]
+    high = labelled[-min(n, top_n):][::-1]
+    return high + low if selection == 'both' else high if selection == 'high' else low
 
 
 class CaptureCreator:
@@ -302,8 +302,9 @@ both directed connection states in every layer. Neither operation deletes atoms 
 These are model sensitivities, not additive contributions, causal effects or confidence estimates.</p>
 <p>Summary means give each distinct molecule equal weight after averaging repeated occurrences within it.
 SD describes variation between molecules; Positive is the fraction with mean Δ &gt; 0.
-High/low columns show group means and molecule counts. With all molecules selected, groups are
-below/above the dataset median; ties contribute to the overall summary only. With --top-n, groups are the selected tails. Unlisted motifs may have insufficient support.
+High/low groups are the top/bottom 20% ranked by predicted log P, rounded down to whole molecules.
+Equal predictions are ordered by canonical SMILES. The middle group contributes to overall statistics;
+--top-n optionally samples the extremes within these 20% groups. Unlisted motifs may have insufficient support.
 Connection motifs describe the joined fragment pair and its remaining attachment sites.</p>'''+''.join(sections)+'<h2>Individual molecules</h2>'+''.join(details)+f'''
 <h2>Run details</h2><small><pre style="white-space:pre-wrap;overflow-wrap:anywhere">{escape(json.dumps(metadata, indent=2))}</pre></small></html>'''
 
@@ -362,8 +363,11 @@ def main():
                     checkpoint_sha256=predictor.checkpoint_hash, config_sha256=digest(args.root/'fragnet_selected.yaml'),
                     script_sha256=digest(Path(__file__)), predictor_script_sha256=digest(ROOT/'generate_molecules.py'),
                     training_helper_sha256=digest(Path(predictor.training.__file__)), graph_seed=predictor.seed,
-                    selection=args.select if args.top_n else 'all; below/above median comparison', requested_per_tail=args.top_n,
-                    dataset_median=statistics.median(r['saved_prediction'] for r in rows),
+                    selection=args.select if args.top_n else 'all; top/bottom 20% comparison', requested_per_tail=args.top_n,
+                    cohort_rule='rank by saved prediction, then canonical isomeric SMILES; floor(N/5) per tail',
+                    tail_fraction=0.2, population_tail_count=len(rows)//5,
+                    population_cohort_counts=dict(high=len(rows)//5, low=len(rows)//5,
+                                                  middle=len(rows)-2*(len(rows)//5)),
                     accepted_unique=len(rows), explained=len(molecules), excluded_rows=len(excluded),
                     selected_ranges={c: [min(m['prediction'] for m in molecules if m['cohort']==c),
                                          max(m['prediction'] for m in molecules if m['cohort']==c)]
