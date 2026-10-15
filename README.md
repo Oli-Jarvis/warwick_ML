@@ -96,14 +96,13 @@ Each candidate receives the final cluster label of its nearest BIRCH subcluster.
 Reference points and cluster boundaries remain fixed. The plot shows only bonding
 PC1, structural PC1 and the property, so visual proximity does not capture all
 seven clustering dimensions. Reference properties are xTB-derived; candidate
-properties are predictions. Assignment distances help identify distant candidates
-but are not calibrated uncertainty estimates.
+properties are FragNet predictions. 
 
 Assignments are saved in the `cluster` column of `space/candidates_in_space.csv`.
 `space/cluster_report.html` shows up to 20 unique reference molecules nearest each
 cluster centroid, followed by the generated molecules assigned to that cluster.
 Distances use the full scaled clustering space; reference centroids and labels
-remain fixed. These representatives describe cluster centres, not highest performance.
+remain fixed. 
 
 `fragnet_analysis/embeddings.py` combines automatically recorded per-run
 predictions into `full_history_generated.csv` and analyses all successful unique
@@ -184,7 +183,7 @@ training results and checks reference compatibility before generation.
 Set `SEED` and `CALLS` near the top of the batch script. Defaults are 123 and
 256 oracle evaluations. The seed is arbitrary (0 to 4,294,967,295); different
 seeds use the same prior and predictor. FragNet's graph-construction seed remains
-separate in its YAML. Software and hardware also affect reproducibility.
+separate in its YAML. 
 
 Outputs are grouped under `nmo_fragnet_generation/runs/seed123_jobJOBID/`,
 with `generation/`, `space/` and combined Slurm log `run.log`. Open
@@ -208,8 +207,8 @@ python pretrain_generator.py nmo_fragnet_generation/pretrain.ini --seed 123
 
 This writes `nmo_fragnet_generation/generator_prior_new` and refuses a nonempty
 destination. After validation, select the new checkpoint with `--prior`; a new
-prior manifest is not created automatically. Keep the supplied prior and its
-matching manifest together.
+prior manifest (settings/contents) is not created automatically. Keep the supplied prior and its
+matching manifest.json together.
 
 ## Environments
 
@@ -242,9 +241,13 @@ conda env create -f environment-fragnet.yml
 Check generated structures against the predictor training set and the reference,
 using canonical molecular identities with explicit stereochemistry handling;
 assess scaffold novelty separately. Recalculate properties for selected candidates
-with xTB to measure prediction errors and ranking agreement, including high-scoring
-molecules. DFT fine-tuning aims to improve agreement with DFT-derived properties;
-any improvement must be demonstrated on independent DFT data.
+with xTB to measure prediction errors and ranking agreement, including high/low-scoring
+molecules. 
+
+The initial test run on SCRTP completed generation and mapping: 256 oracle evaluations,
+39 failures and 216 unique successfully mapped molecules. The saved/rebuilt
+five-molecule prediction check also passed. This confirms end-to-end execution;
+it does not establish molecular novelty or prediction accuracy.
 
 ### Similarity and prediction reliability
 
@@ -280,9 +283,4 @@ any speed benefit over xTB should be measured.
 DFT predictions require a reference with a consistent property basis because the
 property enters clustering. Descriptor PCA models can remain fixed, but DFT
 values must not simply replace xTB values in the existing cluster assignment.
-
-The initial test run on SCRTP completed generation and mapping: 256 oracle evaluations,
-39 failures and 216 unique successfully mapped molecules. The saved/rebuilt
-five-molecule prediction check also passed. This confirms end-to-end execution;
-it does not establish molecular novelty or prediction accuracy.
 
