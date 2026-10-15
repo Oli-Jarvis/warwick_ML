@@ -70,7 +70,8 @@ molecules. KRR was also trialled but performed less well, so FragNet was retaine
 
 ## Chemical space and explainability
 
-The reference follows Joe Gilkes's clustering approach.
+The reference follows Joe Gilkes's clustering approach, described with co-authors
+in [Koczor-Benda et al., *Digital Discovery* (2025)](https://doi.org/10.1039/D5DD00106D).
 It contains 68,268 rows from SMILES/GGS runs and 20 final clusters.
 
 PCA is fitted once to the reference before candidates are added. Bonding and
