@@ -115,8 +115,14 @@ but are not calibrated uncertainty estimates.
 
 ### Fragment and connection analysis
 
-In the `fragnet` environment, from the project root, combine all run prediction
-files and explain every successful unique molecule:
+`fragnet_analysis/embeddings.py` combines run predictions into
+`full_history_generated.csv` and explains all successful unique molecules using
+the same FragNet model and graph construction as generation. It checks prediction
+agreement and rejects conflicting predictions or different known checkpoints.
+The shared CSV retains failures, repeats and source information; original NMO
+`full_history.csv` files retain fitness, SA and other search metadata.
+
+Run in `fragnet`, from the project root:
 
 ```bash
 python fragnet_analysis/embeddings.py \
@@ -124,51 +130,31 @@ python fragnet_analysis/embeddings.py \
   --output nmo_fragnet_generation/generated_analysis --min-support 5
 ```
 
-This writes `full_history_generated.csv` alongside the report. The shared table
-retains every evaluated row, including repeats and failures, with source-file,
-source-line and checkpoint information. It is a prediction history; original NMO
-`full_history.csv` files retain fitness, SA and other search metadata. Invalid
-sequences discarded before oracle evaluation are not in the prediction history.
-Different known predictor checkpoints or conflicting predictions for the same
-canonical isomeric molecule are rejected, rather than silently combined.
+The offline `report.html` shows fragments and connections in molecular context.
+Contribution Δ = prediction(full) − prediction(masked): positive/orange supports
+higher predicted log-property; negative/blue supports lower values; grey is near
+zero. Fragment masking zeros final atom states while retaining fragment states;
+connection masking zeros both directed connection states in every layer. These
+are model sensitivities, not chemical deletions, additive property components or
+proven mechanisms; they do not explain the SA/rotatable-bond penalties.
 
-Analysis excludes failures and explains each canonical isomeric molecule once.
-All unique molecules contribute to the overall motif statistics. High/low columns
-compare predictions above/below the combined dataset median; exact median ties
-contribute only to the overall statistics. These are relative predicted-property
-groups, not measured performance or fitness classes. `--top-n 10` optionally limits
-analysis to ten molecules per tail; `--select high` or `--select low` then selects
-one tail. Unmasked predictions must match saved values (absolute tolerance 1e-4,
-relative tolerance 1e-5).
+Recurring-motif means give each molecule equal weight. Support counts distinct
+molecules, SD measures variation between them, and Positive is the fraction with
+positive mean Δ. High/low columns compare predictions above/below the dataset
+median; ties remain in the overall summary. Drawings show one occurrence, whose
+sign may differ from the overall mean. The command requires five supporting
+molecules per summary motif; individual effects remain in `contributions.csv`.
+`motif_summary.csv` stores summary statistics, `summary.json` records checks and
+settings, and `excluded.csv` records excluded rows when present.
 
-Use `--collect-only` to build the shared CSV without explanations. It can later be
-supplied to `--input` instead of the run files. To include later runs, rebuild from
-the complete set of run files into a new output directory; do not append the same
-histories repeatedly. Existing nonempty output directories are protected.
+Use `--collect-only` to build the shared CSV first, then pass it to `--input` for
+analysis. Rebuild from all run files into a new output directory when adding runs.
+`--top-n 10` optionally restricts analysis to the two extremes. No graph caches or
+embedding arrays are saved. Recurring signed effects can guide matched-substitution
+xTB/DFT tests, but the generated sample remains biased by its search objective.
 
-The offline `report.html` contains recurring motifs and expandable molecule
-reports. Orange/positive Δ supports higher predicted log-property; blue/negative Δ
-supports lower values; grey is near zero. Summary drawings show one occurrence,
-not the aggregate effect. Δ = full prediction − masked prediction.
-Fragment masking zeros the fragment's final atom states before pooling, retaining
-the fragment states. Connection masking zeros both directed connection states in
-every layer. Neither operation removes atoms or chemically cleaves a bond.
-
-Summary means first average repeated occurrences within each molecule, then give
-each molecule equal weight. Support is the number of distinct molecules; SD is
-between-molecule variation; Positive is the fraction with positive mean Δ.
-High/low columns give the mean and support in each comparison group. By default,
-summary motifs require two molecules (`--min-support`); all occurrences remain
-in `contributions.csv`. `motif_summary.csv` contains the summary statistics;
-`summary.json` records model/input hashes and prediction agreement. `excluded.csv`
-is written only when rows were excluded. No embeddings or graph caches are saved.
-
-Motifs retain attachment sites (`*` in the CSV); connection motifs represent joined
-fragment pairs. These are context-dependent model sensitivities, not additive
-property components, causal effects or confidence estimates. Use recurring signed
-effects to propose matched substitutions for explicit xTB/DFT testing. Selecting
-only the extremes does not establish enrichment across the whole dataset. Even
-with all generated molecules, the sample reflects the generator and search objective.
+`fragnet_analysis/neighbours.py` and `tanimoto_similarity/` retain the previous
+similarity tools and results; their limitations are discussed below.
 
 ## Files and running
 
@@ -318,4 +304,5 @@ The SCRTP pilot completed generation and mapping: 256 oracle evaluations,
 39 failures and 216 unique successfully mapped molecules. The saved/rebuilt
 five-molecule prediction check also passed. This confirms end-to-end execution;
 it does not establish molecular novelty or prediction accuracy.
+
 
