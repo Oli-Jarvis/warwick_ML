@@ -19,17 +19,21 @@ TARGET = 'fragnet_log_P_upconversion'
 
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--input', required=True, type=Path, help='Generation fragnet_predictions.csv')
+    p.add_argument('--input', required=True, type=Path, nargs='+',
+                   help='One or more fragnet_predictions.csv files, or full_history_generated.csv')
     p.add_argument('--output', required=True, type=Path)
     p.add_argument('--root', type=Path, default=ROOT / 'fragnet_config_details')
     p.add_argument('--fragnet-dir', type=Path, default=ROOT / 'fragnet_source_code')
-    p.add_argument('--top-n', type=int, default=10, help='Molecules per tail; 0 selects all')
+    p.add_argument('--top-n', type=int, default=0, help='Molecules per tail; default 0 analyses all')
     p.add_argument('--select', choices=['both', 'high', 'low'], default='both')
     p.add_argument('--min-support', type=int, default=2, help='Distinct molecules per summary motif')
     p.add_argument('--threads', type=int, default=1)
+    p.add_argument('--collect-only', action='store_true', help='Build shared CSV without running explanations')
     args = p.parse_args()
     if args.top_n < 0 or args.min_support < 1 or args.threads < 1:
         p.error('Require top-n >= 0, min-support >= 1 and threads >= 1')
+    if args.top_n == 0 and args.select != 'both':
+        p.error('--select high/low requires a positive --top-n')
     return args
 
 
@@ -64,7 +68,9 @@ def read_candidates(path, identity):
 
 def select_candidates(rows, top_n, selection):
     if top_n == 0:
-        return [dict(r, cohort='all') for r in rows]
+        median = statistics.median(r['saved_prediction'] for r in rows)
+        return [dict(r, cohort=('low' if r['saved_prediction'] < median else
+                               'high' if r['saved_prediction'] > median else 'middle')) for r in rows]
     if selection != 'both':
         chosen = rows[:top_n] if selection == 'low' else rows[-top_n:][::-1]
         return [dict(r, cohort=selection) for r in chosen]
@@ -236,7 +242,7 @@ def summarise(molecules, min_support):
                    mean=statistics.mean(values.values()), median=statistics.median(values.values()),
                    sd=statistics.stdev(values.values()) if len(values)>1 else 0.,
                    positive_fraction=sum(v>0 for v in values.values())/len(values))
-        for cohort in ['high', 'low', 'all']:
+        for cohort in ['high', 'low', 'middle']:
             tail = [v for s, v in values.items() if cohorts[s] == cohort]
             row[cohort+'_n'] = len(tail)
             row[cohort+'_mean'] = statistics.mean(tail) if tail else None
@@ -296,9 +302,37 @@ both directed connection states in every layer. Neither operation deletes atoms 
 These are model sensitivities, not additive contributions, causal effects or confidence estimates.</p>
 <p>Summary means give each distinct molecule equal weight after averaging repeated occurrences within it.
 SD describes variation between molecules; Positive is the fraction with mean Δ &gt; 0.
-High/low columns show the corresponding tail mean and molecule count. Unlisted motifs may have insufficient support.
+High/low columns show group means and molecule counts. With all molecules selected, groups are
+below/above the dataset median; ties contribute to the overall summary only. With --top-n, groups are the selected tails. Unlisted motifs may have insufficient support.
 Connection motifs describe the joined fragment pair and its remaining attachment sites.</p>'''+''.join(sections)+'<h2>Individual molecules</h2>'+''.join(details)+f'''
 <h2>Run details</h2><small><pre style="white-space:pre-wrap;overflow-wrap:anywhere">{escape(json.dumps(metadata, indent=2))}</pre></small></html>'''
+
+
+
+def collect_predictions(paths, destination, checkpoint):
+    fields = ['source_file', 'source_line', 'checkpoint_sha256', 'oracle_call',
+              'encoding', 'smiles', TARGET, 'prediction_ok', 'prediction_error']
+    records = []
+    for path in dict.fromkeys(p.resolve() for p in paths):
+        summary = path.parent / 'run_summary.json'
+        recorded = json.loads(summary.read_text()).get('checkpoint_sha256') if summary.exists() else None
+        if recorded and recorded != checkpoint:
+            raise ValueError(f'Checkpoint differs from generation run: {path}')
+        with path.open(newline='') as handle:
+            reader = csv.DictReader(handle)
+            if not {'smiles', TARGET, 'prediction_ok'} <= set(reader.fieldnames or []):
+                raise ValueError(f'Not a FragNet prediction history: {path}')
+            for line, row in enumerate(reader, 2):
+                source_hash = row.get('checkpoint_sha256') or recorded or ''
+                if source_hash and source_hash != checkpoint:
+                    raise ValueError(f'Mixed predictor checkpoints in {path}, line {line}')
+                records.append({**row, 'source_file': row.get('source_file') or str(path),
+                                'source_line': row.get('source_line') or line,
+                                'checkpoint_sha256': source_hash})
+    if not records:
+        raise ValueError('Input histories are empty')
+    write_csv(destination, records, fields)
+    return len(records)
 
 
 def main():
@@ -309,24 +343,27 @@ def main():
     from generate_molecules import Predictor, digest
     with open(os.devnull, 'w') as quiet, contextlib.redirect_stdout(quiet):
         predictor = Predictor(args.root, args.fragnet_dir, args.threads)
-    rows, excluded = read_candidates(args.input, predictor.training.molecule_identity)
+    args.output.mkdir(parents=True, exist_ok=True)
+    shared = args.output / 'full_history_generated.csv'
+    collected = collect_predictions(args.input, shared, predictor.checkpoint_hash)
+    if args.collect_only:
+        print(f'Collected {collected} evaluations: {shared}')
+        return
+    rows, excluded = read_candidates(shared, predictor.training.molecule_identity)
     selected = select_candidates(rows, args.top_n, args.select)
-    run_summary = args.input.parent / 'run_summary.json'
-    if run_summary.exists():
-        recorded = json.loads(run_summary.read_text()).get('checkpoint_sha256')
-        if recorded and recorded != predictor.checkpoint_hash:
-            raise ValueError('Checkpoint differs from generation run')
     molecules = []
     for i, row in enumerate(selected, 1):
         print(f"Explaining {i}/{len(selected)} ({row['cohort']})", flush=True)
         with open(os.devnull, 'w') as quiet, contextlib.redirect_stdout(quiet):
             molecules.append(explain(predictor, row))
     summary = summarise(molecules, args.min_support)
-    metadata = dict(input=str(args.input.resolve()), input_sha256=digest(args.input),
+    metadata = dict(inputs={str(p.resolve()): digest(p) for p in args.input},
+                    collected_evaluations=collected, shared_history_sha256=digest(shared),
                     checkpoint_sha256=predictor.checkpoint_hash, config_sha256=digest(args.root/'fragnet_selected.yaml'),
                     script_sha256=digest(Path(__file__)), predictor_script_sha256=digest(ROOT/'generate_molecules.py'),
                     training_helper_sha256=digest(Path(predictor.training.__file__)), graph_seed=predictor.seed,
-                    selection=args.select if args.top_n else 'all', requested_per_tail=args.top_n,
+                    selection=args.select if args.top_n else 'all; below/above median comparison', requested_per_tail=args.top_n,
+                    dataset_median=statistics.median(r['saved_prediction'] for r in rows),
                     accepted_unique=len(rows), explained=len(molecules), excluded_rows=len(excluded),
                     selected_ranges={c: [min(m['prediction'] for m in molecules if m['cohort']==c),
                                          max(m['prediction'] for m in molecules if m['cohort']==c)]
@@ -340,7 +377,7 @@ def main():
     write_csv(args.output/'contributions.csv', flat,
               ['molecule_id','smiles','cohort','prediction','kind','local_id','motif','masked_prediction','contribution'])
     fields = ['kind','motif','molecules','occurrences','mean','median','sd','positive_fraction',
-              'high_n','high_mean','low_n','low_mean','all_n','all_mean']
+              'high_n','high_mean','low_n','low_mean','middle_n','middle_mean']
     write_csv(args.output/'motif_summary.csv', summary, fields)
     if excluded:
         write_csv(args.output/'excluded.csv', excluded, ['line','smiles','reason'])
